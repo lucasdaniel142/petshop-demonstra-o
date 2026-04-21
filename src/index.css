@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  /* Identidade Supermercado Sagrada Família */
+  --color-primary: #004b22;
+  --color-primary-dark: #003317;
+  --color-accent: #00c900;
+  --color-accent-dark: #00a800;
+  --color-secondary: #00c900;
+  --color-on-primary: #ffffff;
+  --color-on-accent: #004b22;
+  --color-bg: #f9fafb;
+  --color-card: #ffffff;
+  --color-text: #333333;
+  --color-muted: #757575;
+  --color-border: #e5e7eb;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

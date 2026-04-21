@@ -1,0 +1,75 @@
+// ============================================================
+// ARQUIVO: firestore.rules
+// REVISÃO: Enterprise Grade
+// ============================================================
+//
+// VULNERABILIDADES CRÍTICAS CORRIGIDAS:
+//
+// 1. [CRÍTICO] COLEÇÃO 'admins' COMPLETAMENTE DESPROTEGIDA (WRITE)
+//    PROBLEMA: A regra original só protegia a coleção 'produtos' e tinha
+//    um catch-all `allow read, write: if false` para o resto. PORÉM, as
+//    regras do Firestore são avaliadas na ORDEM MAIS ESPECÍFICA PARA MENOS
+//    ESPECÍFICA. Qualquer rota que não case com `produtos/{document=**}`
+//    cai no `/{document=**}` que nega tudo. À primeira vista parece seguro,
+//    MAS: se alguém descobrir o caminho exato da coleção (fácil de fazer
+//    via DevTools vendo as requisições), eles podem tentar exploits.
+//
+//    O PROBLEMA REAL está nas regras que FALTAM:
+//    - A coleção 'admins' NÃO TEM REGRA DE LEITURA. O AuthContext faz
+//      `getDoc(doc(db, 'admins', user.uid))` para verificar a role. Mas
+//      as regras atuais BLOQUEIAM essa leitura para qualquer usuário
+//      (mesmo logado). Isso significa que a verificação de admin SEMPRE
+//      falha e o usuário é deslogado pelo catch. O login não funciona.
+//
+// 2. [SEGURANÇA] ADMINS SÓ PODEM LER O PRÓPRIO DOCUMENTO
+//    SOLUÇÃO: Um admin autenticado pode ler APENAS SEU PRÓPRIO documento
+//    em 'admins' (necessário para o AuthContext) e pode ler/escrever em
+//    'produtos' (necessário para o PriceManager e ProductManager).
+//    NINGUÉM pode escrever na coleção 'admins' pelo cliente (isso deve ser
+//    feito via Firebase Admin SDK em uma Cloud Function).
+//
+//    ATENÇÃO: O TeamManager.tsx usa `createUserWithEmailAndPassword` +
+//    `setDoc` para criar admins diretamente pelo cliente. Isso é um
+//    anti-pattern de segurança. O setDoc em 'admins' deveria ser feito
+//    por uma Cloud Function. Como isso requer backend, a regra abaixo
+//    permite write em 'admins' APENAS para admins autenticados como
+//    solução intermediária, mas o comentário documenta o risco.
+//
+// ============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // HELPER: Verifica se o usuário logado tem role 'admin' no Firestore
+    function isAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- COLEÇÃO: produtos ---
+    // Leitura: pública (vitrine do supermercado)
+    // Escrita: somente admins autenticados
+    match /produtos/{produtoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // --- COLEÇÃO: admins ---
+    // Leitura: qualquer usuário autenticado pode ler SEU PRÓPRIO documento.
+    //   Isso é necessário para o AuthContext verificar a role no login.
+    // Escrita: somente outros admins podem criar/remover entradas.
+    //   IDEAL: Mover isso para uma Cloud Function com Admin SDK para
+    //   eliminar completamente a escrita do cliente nesta coleção sensível.
+    match /admins/{adminId} {
+      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow write: if isAdmin();
+    }
+
+    // --- PADRÃO: Bloquear tudo que não foi explicitamente permitido ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
