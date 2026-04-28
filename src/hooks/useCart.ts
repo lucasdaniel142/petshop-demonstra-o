@@ -1,15 +1,7 @@
 // src/hooks/useCart.ts
 // ============================================================
-// ESTE É O ARQUIVO CORRETO. O src/hooks/useCart.tsx DEVE SER DELETADO.
-//
-// Diferença crítica:
-//   useCart.tsx (ERRADO): import { shallow } from 'zustand/shallow'
-//                         — API removida no Zustand v5, causa crash em runtime
-//
-//   useCart.ts  (CERTO):  import { useShallow } from 'zustand/react/shallow'
-//                         — API correta do Zustand v5
-//
-// AÇÃO NECESSÁRIA: deletar src/hooks/useCart.tsx
+// Hook público do carrinho com dados derivados (total, contagem)
+// e informações de entrega dinâmica por distância.
 // ============================================================
 
 import { useMemo } from 'react';
@@ -21,22 +13,28 @@ export const useCart = () => {
   const {
     items,
     isCartOpen,
+    delivery,
     addItem,
     removeItem,
     updateQuantity,
     clearCart,
     toggleCart,
     getItemQuantity,
+    setDeliveryInfo,
+    clearDelivery,
   } = useCartStore(
     useShallow((state) => ({
       items: state.items,
       isCartOpen: state.isCartOpen,
+      delivery: state.delivery,
       addItem: state.addItem,
       removeItem: state.removeItem,
       updateQuantity: state.updateQuantity,
       clearCart: state.clearCart,
       toggleCart: state.toggleCart,
       getItemQuantity: state.getItemQuantity,
+      setDeliveryInfo: state.setDeliveryInfo,
+      clearDelivery: state.clearDelivery,
     }))
   );
 
@@ -51,18 +49,28 @@ export const useCart = () => {
     [items]
   );
 
+  // Total geral: subtotal + taxa de entrega dinâmica
+  const deliveryFee = delivery?.fee ?? 0;
+  const totalWithDelivery = cartTotal + deliveryFee;
+
   return {
     items,
     isCartOpen,
+    delivery,
     addItem,
     removeItem,
     updateQuantity,
     clearCart,
     toggleCart,
     getItemQuantity,
+    setDeliveryInfo,
+    clearDelivery,
     cartTotal,
     cartItemCount,
+    deliveryFee,
+    totalWithDelivery,
     // Retrocompatibilidade para código que chama getCartTotal()
     getCartTotal: () => cartTotal,
   };
 };
+

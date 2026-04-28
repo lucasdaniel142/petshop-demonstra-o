@@ -1,64 +1,74 @@
 // src/utils/constants.ts
-// Centraliza todas as constantes de negócio do domínio.
-// Antes: STORES, CATEGORY_OPTIONS e CATEGORY_KEYWORDS viviam em Home.tsx
-// e precisariam ser copiadas para qualquer outro componente que as precisasse.
+// ============================================================
+// Constantes centralizadas do sistema.
+// Toda constante de negócio (lojas, categorias, unidades)
+// deve ficar aqui, nunca espalhada pelos componentes.
+// ============================================================
 
 import type { StoreId, StoreOption } from '../types';
 
+// ── IDs das lojas (devem corresponder ao type StoreId) ──
+export const STORE_IDS: StoreId[] = ['benedito_bentes'];
+
+// ── Lojas disponíveis na vitrine (header) ──
 export const STORES: ReadonlyArray<StoreOption> = [
   { id: 'benedito_bentes', label: 'Benedito Bentes' },
-  { id: 'vergel',          label: 'Vergel do Lago'  },
-  { id: 'salvador_lyra',   label: 'Salvador Lyra'   },
+  // Adicione novas lojas aqui ao expandir:
+  // { id: 'vergel', label: 'Vergel do Lago' },
+  // { id: 'salvador_lyra', label: 'Salvador Lyra' },
 ] as const;
 
-export const STORE_IDS = STORES.map((s) => s.id) as StoreId[];
+// ── Lojas no painel admin (PriceManager) ──
+export const ADMIN_STORES: ReadonlyArray<{ id: StoreId; label: string }> = [
+  { id: 'benedito_bentes', label: 'Benedito Bentes' },
+];
 
-export const ADMIN_STORES = [
-  { id: 'visao_geral',    name: 'Visão Geral (Apenas Leitura)' },
+// ── Unidades no painel admin (TeamManager) ──
+export const ADMIN_UNIDADES: ReadonlyArray<{ id: string; name: string }> = [
+  { id: 'geral', name: 'Administrativo Geral' },
   { id: 'benedito_bentes', name: 'Benedito Bentes' },
-  { id: 'vergel',          name: 'Vergel do Lago'  },
-  { id: 'salvador_lyra',   name: 'Salvador Lyra'   },
-] as const;
+  // { id: 'vergel', name: 'Vergel do Lago' },
+  // { id: 'salvador_lyra', name: 'Salvador Lyra' },
+];
 
-export const ADMIN_UNIDADES = [
-  { id: 'geral',           name: 'Administrativo Geral' },
-  { id: 'benedito_bentes', name: 'Benedito Bentes'      },
-  { id: 'vergel',          name: 'Vergel do Lago'       },
-  { id: 'salvador_lyra',   name: 'Salvador Lyra'        },
-] as const;
-
-export const CATEGORY_OPTIONS = [
-  { id: 'all',                  label: 'Todos'                  },
-  { id: 'ofertas',              label: '🔥 Ofertas'             },
-  { id: 'mercearia',            label: '🥫 Mercearia'           },
-  { id: 'bebidas',              label: '🥤 Bebidas'             },
-  { id: 'hortifruti',           label: '🍎 Hortifruti'          },
-  { id: 'acougue-peixaria',     label: '🥩 Açougue e Peixaria'  },
-  { id: 'padaria-confeitaria',  label: '🍞 Padaria e Confeitaria' },
-  { id: 'limpeza',              label: '🧼 Limpeza'             },
-  { id: 'higiene-pessoal',      label: '🧴 Higiene Pessoal'     },
-  { id: 'congelados',           label: '❄️ Congelados'          },
-] as const;
-
+// ── Categorias de produtos (ProductManager + filtro) ──
 export const PRODUCT_CATEGORIES = [
   'Mercearia',
   'Bebidas',
   'Hortifruti',
-  'Açougue e Peixaria',
-  'Padaria e Confeitaria',
+  'Carnes',
+  'Laticínios',
+  'Padaria',
   'Limpeza',
   'Higiene Pessoal',
   'Congelados',
+  'Ofertas',
 ] as const;
 
+// ── Categorias para a barra de navegação (Home) ──
+export const CATEGORY_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
+  { id: 'all', label: 'Todos' },
+  { id: 'ofertas', label: 'Ofertas' },
+  { id: 'mercearia', label: 'Mercearia' },
+  { id: 'bebidas', label: 'Bebidas' },
+  { id: 'hortifruti', label: 'Hortifruti' },
+  { id: 'carnes', label: '🥩 Carnes' },
+  { id: 'laticinios', label: '🧀 Laticínios' },
+  { id: 'padaria', label: '🥖 Padaria' },
+  { id: 'limpeza', label: '🧹 Limpeza' },
+  { id: 'higiene', label: '🧴 Higiene Pessoal' },
+  { id: 'congelados', label: '🧊 Congelados' },
+];
+
+// ── Keywords para filtrar categorias (matcheia nome da categoria do Firestore) ──
 export const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  ofertas:               ['oferta', 'ofertas', 'promoção', 'promo', 'desconto'],
-  mercearia:             ['mercearia', 'grocery', 'mercado', 'supermercado'],
-  bebidas:               ['bebida', 'bebidas', 'beverage', 'refrigerante', 'suco', 'cerveja', 'vinho'],
-  hortifruti:            ['hortifruti', 'fruta', 'frutas', 'verdura', 'verduras', 'legume', 'legumes'],
-  'acougue-peixaria':    ['acougue', 'açougue', 'peixaria', 'peixe', 'frutos do mar', 'marisco', 'salmão'],
-  'padaria-confeitaria': ['padaria', 'pão', 'pães', 'bakery', 'confeitaria', 'doce', 'bolo', 'torta'],
-  limpeza:               ['limpeza', 'detergente', 'sabão', 'desinfetante'],
-  'higiene-pessoal':     ['higiene', 'shampoo', 'condicionador', 'sabonete', 'pasta de dente'],
-  congelados:            ['congelado', 'congelados', 'frozen', 'freezer'],
+  mercearia: ['mercearia', 'grãos', 'cereais', 'enlatados'],
+  bebidas: ['bebidas', 'refrigerante', 'suco', 'água'],
+  hortifruti: ['hortifruti', 'frutas', 'verduras', 'legumes'],
+  carnes: ['carnes', 'açougue', 'frango', 'peixe'],
+  laticinios: ['laticínios', 'laticinios', 'queijo', 'leite', 'iogurte'],
+  padaria: ['padaria', 'pão', 'bolo', 'confeitaria'],
+  limpeza: ['limpeza', 'detergente', 'desinfetante'],
+  higiene: ['higiene', 'pessoal', 'shampoo', 'sabonete'],
+  congelados: ['congelados', 'frozen', 'sorvete'],
 };

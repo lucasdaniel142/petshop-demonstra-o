@@ -1,23 +1,12 @@
 // src/utils/whatsapp.ts
 // ============================================================
-// CORREÇÕES DESTA VERSÃO:
-//
-// 1. [CRÍTICO] Validação explícita das variáveis de ambiente VITE_WHATSAPP_*.
-//    Antes: retornava '' silenciosamente, link nunca era gerado.
-//    Agora: emite aviso claro no console DEV quando o número não está
-//    configurado, para que o desenvolvedor saiba exatamente o que falta.
-//
-// 2. Para que o WhatsApp funcione, adicione ao .env.local:
-//    VITE_WHATSAPP_BENEDITO_BENTES=5582XXXXXXXXX
-//    VITE_WHATSAPP_VERGEL=5582XXXXXXXXX
-//    VITE_WHATSAPP_SALVADOR_LYRA=5582XXXXXXXXX
-//    (formato: código do país + DDD + número, sem espaços ou símbolos)
+// Geração de links do WhatsApp com mensagem formatada do pedido.
 // ============================================================
 
 import type { CartItem, StoreId } from '../types';
+import { BRAND } from '../config/brand';
 
 // Lê e valida as variáveis de ambiente.
-// Em DEV, loga um aviso claro se estiverem ausentes.
 const getWhatsAppNumber = (envKey: string, storeName: string): string => {
   const value = import.meta.env[envKey] ?? '';
   if (!value && import.meta.env.DEV) {
@@ -29,78 +18,53 @@ const getWhatsAppNumber = (envKey: string, storeName: string): string => {
   return value;
 };
 
+// Mapeamento de lojas → números do WhatsApp
 export const STORE_WHATSAPP_NUMBERS: Record<StoreId, string> = {
   benedito_bentes: getWhatsAppNumber('VITE_WHATSAPP_BENEDITO_BENTES', 'Benedito Bentes'),
-  vergel:          getWhatsAppNumber('VITE_WHATSAPP_VERGEL', 'Vergel do Lago'),
-  salvador_lyra:   getWhatsAppNumber('VITE_WHATSAPP_SALVADOR_LYRA', 'Salvador Lyra'),
+  // vergel: getWhatsAppNumber('VITE_WHATSAPP_VERGEL', 'Vergel'),
+  // salvador_lyra: getWhatsAppNumber('VITE_WHATSAPP_SALVADOR_LYRA', 'Salvador Lyra'),
 };
 
-// Sanitiza strings do usuário para evitar injeção de conteúdo na mensagem
-const sanitize = (input: string): string =>
-  input.replace(/[\r\n\t]/g, ' ').trim();
-
 /**
- * Gera um link wa.me com a lista de itens do carrinho formatada.
- *
- * @returns URL do WhatsApp pronta para abrir, ou '' se dados inválidos.
+ * Gera a URL do WhatsApp com a mensagem do pedido formatada.
  */
-export const generateWhatsAppLink = (
+export function generateWhatsAppLink(
   items: CartItem[],
   subtotal: number,
   customerName: string,
-  address: string,
+  deliveryAddress: string,
   paymentMethod: string,
   storeLabel: string,
   storePhone: string,
   deliveryFee: number = 0
-): string => {
-  // Remove tudo que não seja dígito do número de telefone
-  const cleanPhone = storePhone.replace(/\D/g, '');
+): string | null {
+  if (!storePhone) return null;
 
-  if (items.length === 0) return '';
+  const greeting = BRAND.whatsappGreeting;
+  const total = subtotal + deliveryFee;
 
-  if (!cleanPhone) {
-    if (import.meta.env.DEV) {
-      console.error(
-        '[WhatsApp] Número de telefone não configurado para esta loja. ' +
-        'Verifique as variáveis VITE_WHATSAPP_* no .env.local'
-      );
-    }
-    return '';
+  let message = `${greeting}\n\n`;
+  message += `📋 *PEDIDO — ${storeLabel}*\n`;
+  message += `━━━━━━━━━━━━━━━━\n\n`;
+
+  items.forEach((item) => {
+    const itemTotal = item.price * item.quantity;
+    message += `▸ ${item.name}\n`;
+    message += `  ${item.quantity}x R$ ${item.price.toFixed(2).replace('.', ',')} = R$ ${itemTotal.toFixed(2).replace('.', ',')}\n\n`;
+  });
+
+  message += `━━━━━━━━━━━━━━━━\n`;
+  message += `💰 Subtotal: R$ ${subtotal.toFixed(2).replace('.', ',')}\n`;
+
+  if (deliveryFee > 0) {
+    message += `🚚 Taxa de entrega: R$ ${deliveryFee.toFixed(2).replace('.', ',')}\n`;
   }
 
-  const safeName    = sanitize(customerName);
-  const safeAddress = sanitize(address);
-  const safePayment = sanitize(paymentMethod);
+  message += `💲 *TOTAL: R$ ${total.toFixed(2).replace('.', ',')}*\n\n`;
+  message += `👤 Nome: ${customerName}\n`;
+  message += `📍 Endereço: ${deliveryAddress}\n`;
+  message += `💳 Pagamento: ${paymentMethod}\n`;
 
-  const greeting = `Olá, Supermercado Sagrada Família! Meu nome é ${safeName} e gostaria de fazer o pedido para a loja *${storeLabel}*:\n\n`;
-
-  const itemsList = items
-    .map(
-      (item) =>
-        `*${item.quantity}x* ${item.name} — R$ ${(item.price * item.quantity)
-          .toFixed(2)
-          .replace('.', ',')}`
-    )
-    .join('\n');
-
-  const totalGeral = subtotal + deliveryFee;
-
-  const taxaLabel = deliveryFee === 0
-    ? 'Grátis'
-    : `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
-
-  const footer = [
-    `\n*Subtotal:* R$ ${subtotal.toFixed(2).replace('.', ',')}`,
-    `*Taxa de Entrega:* ${taxaLabel}`,
-    `*Total a Pagar:* R$ ${totalGeral.toFixed(2).replace('.', ',')}`,
-    '',
-    `*Endereço de Entrega:* ${safeAddress}`,
-    `*Forma de Pagamento:* ${safePayment}`,
-  ].join('\n');
-
-  const message = `${greeting}${itemsList}${footer}`;
-
-  // Usa api.whatsapp.com para evitar o bug de "aba branca" em alguns dispositivos
-  return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
-};
+  const encoded = encodeURIComponent(message);
+  return `https://wa.me/${storePhone}?text=${encoded}`;
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { Store, Tags, Users, LogOut, Package } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { BRAND } from '../../config/brand';
 
 export const AdminLayout: React.FC = () => {
   const { logout } = useAuth();
@@ -21,7 +22,7 @@ export const AdminLayout: React.FC = () => {
             <Store size={24} />
           </div>
           <div>
-            <h2 className="font-[800] text-text text-[15px] leading-tight">Sagrada Família</h2>
+            <h2 className="font-[800] text-text text-[15px] leading-tight">{BRAND.name}</h2>
             <span className="text-muted text-[12px] font-[500]">Painel Admin</span>
           </div>
         </div>

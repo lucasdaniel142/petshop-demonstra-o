@@ -3,7 +3,7 @@
 // Nenhum componente deve redefinir localmente tipos que já existem aqui.
 
 // --- IDs das lojas como tipo literal (evita strings mágicas) ---
-export type StoreId = 'benedito_bentes' | 'vergel' | 'salvador_lyra';
+export type StoreId = 'benedito_bentes'; // | 'vergel' | 'salvador_lyra';
 
 // --- Preço por loja ---
 export interface StorePrice {
@@ -89,3 +89,32 @@ export const DEFAULT_STORE_PRICE: StorePrice = {
   emOferta: false,
   esgotado: false,
 };
+
+// --- Pagamento (Mercado Pago Checkout Transparente) ---
+export type PaymentMethodType = 'pix' | 'credit_card' | 'debit_card';
+
+export type PaymentStatus =
+  | 'idle'
+  | 'processing'
+  | 'pending'       // Pix gerado, aguardando pagamento
+  | 'approved'
+  | 'rejected'
+  | 'error';
+
+export interface Order {
+  id: string;
+  items: CartItem[];
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  customerName: string;
+  deliveryAddress: string;
+  cep: string;
+  storeId: StoreId;
+  storeLabel: string;
+  paymentMethod: PaymentMethodType;
+  paymentStatus: PaymentStatus;
+  mpPaymentId?: number;
+  createdAt: unknown; // Firestore Timestamp
+  updatedAt?: unknown;
+}

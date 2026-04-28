@@ -55,8 +55,8 @@ export const PriceManager: React.FC = () => {
             unit: data.unit || 'un',
             precos: data.precos || {
               benedito_bentes: DEFAULT_STORE_PRICE,
-              vergel: DEFAULT_STORE_PRICE,
-              salvador_lyra: DEFAULT_STORE_PRICE,
+              // vergel: DEFAULT_STORE_PRICE,
+              // salvador_lyra: DEFAULT_STORE_PRICE,
             },
           };
         });

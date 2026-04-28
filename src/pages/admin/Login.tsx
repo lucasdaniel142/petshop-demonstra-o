@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { Store, Lock, AlertCircle } from 'lucide-react';
+import { BRAND } from '../../config/brand';
 
 const getErrorMessage = (code: string): string => {
   switch (code) {
@@ -28,21 +29,64 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // SECURITY: Rate limiting visual — complementa o bloqueio do Firebase
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number>(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_DURATION_MS = 30_000; // 30 segundos
+
+  // Countdown visual do lockout
+  React.useEffect(() => {
+    if (lockoutUntil <= Date.now()) return;
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockoutSeconds(0);
+        setFailedAttempts(0);
+        clearInterval(interval);
+      } else {
+        setLockoutSeconds(remaining);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
+
+  const isLockedOut = lockoutSeconds > 0;
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLockedOut) return;
     setError('');
     setLoading(true);
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      setFailedAttempts(0);
       navigate('/admin');
     } catch (err: unknown) {
       const code =
         err !== null && typeof err === 'object' && 'code' in err
           ? String((err as { code: string }).code)
           : 'unknown';
-      console.error('[Login] Erro de autenticação:', code);
-      setError(getErrorMessage(code));
+
+      // Só loga em desenvolvimento
+      if (import.meta.env.DEV) {
+        console.error('[Login] Erro de autenticação:', code);
+      }
+
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_DURATION_MS;
+        setLockoutUntil(until);
+        setLockoutSeconds(Math.ceil(LOCKOUT_DURATION_MS / 1000));
+        setError(`Muitas tentativas (${MAX_ATTEMPTS}). Aguarde 30 segundos.`);
+      } else {
+        setError(getErrorMessage(code));
+      }
     } finally {
       setLoading(false);
     }
@@ -56,7 +100,7 @@ export const Login: React.FC = () => {
             <Store size={32} />
           </div>
           <h1 className="text-[24px] font-[800] text-text text-center">
-            Sagrada Família
+            {BRAND.name}
           </h1>
           <p className="text-muted text-[14px] mt-1">Painel Administrativo</p>
         </div>
@@ -80,7 +124,7 @@ export const Login: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-[#F0F2F2] border border-transparent rounded-[8px] px-4 py-3 text-[14px] outline-none focus:border-primary focus:bg-white transition-colors"
-              placeholder="admin@sagradafamilia.com.br"
+              placeholder="admin@minhaloja.com"
               autoComplete="email"
             />
           </div>
@@ -103,10 +147,14 @@ export const Login: React.FC = () => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isLockedOut}
             className="w-full mt-4 bg-primary hover:bg-primary-dark text-white font-[600] text-[15px] py-3.5 rounded-[8px] transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2 shadow-sm"
           >
-            {loading ? (
+            {isLockedOut ? (
+              <>
+                🔒 Aguarde {lockoutSeconds}s
+              </>
+            ) : loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Autenticando...

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Package } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Package, FileSpreadsheet } from 'lucide-react';
+import { BulkImportModal } from '../../components/admin/BulkImportModal';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { FeedbackBanner } from '../../components/ui/FeedbackBanner';
@@ -19,8 +20,8 @@ const EMPTY_FORM: Omit<ManagedProduct, 'id'> = {
   unit: 'un',
   precos: {
     benedito_bentes: { ...DEFAULT_STORE_PRICE },
-    vergel: { ...DEFAULT_STORE_PRICE },
-    salvador_lyra: { ...DEFAULT_STORE_PRICE },
+    // vergel: { ...DEFAULT_STORE_PRICE },
+    // salvador_lyra: { ...DEFAULT_STORE_PRICE },
   },
 };
 
@@ -68,6 +69,7 @@ export default function ProductManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState<Omit<ManagedProduct, 'id'>>(EMPTY_FORM);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -206,6 +208,12 @@ export default function ProductManager() {
 
   return (
     <div className="space-y-6">
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={(count) => showFeedback('success', `${count} produto(s) importado(s) com sucesso!`)}
+      />
+
       {deleteTarget && (
         <DeleteConfirmModal
           nomeProduto={deleteTarget.nome}
@@ -227,6 +235,12 @@ export default function ProductManager() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full sm:w-[220px] bg-[#F0F2F2] border border-transparent rounded-[8px] pl-4 pr-4 py-2.5 text-[14px] outline-none focus:border-primary focus:bg-white transition-colors"
           />
+          <button
+            onClick={() => setIsBulkImportOpen(true)}
+            className="bg-accent hover:bg-accent-dark text-on-accent px-5 py-3 rounded-[8px] flex items-center gap-2 text-[14px] font-extrabold transition-colors whitespace-nowrap shadow-sm"
+          >
+            <FileSpreadsheet size={18} /> Importar Planilha
+          </button>
           <button
             onClick={() => { setIsAdding(true); setEditingId(null); setFormData(EMPTY_FORM); }}
             className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-[8px] flex items-center gap-2 text-[14px] font-extrabold transition-colors whitespace-nowrap shadow-sm"
@@ -325,11 +339,11 @@ export default function ProductManager() {
           <div className="border-t border-border pt-6 mb-6">
             <h3 className="text-[15px] lg:text-[16px] font-[700] text-text mb-4">Preço por Loja (R$)</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {(['benedito_bentes', 'vergel', 'salvador_lyra'] as const).map((loja) => {
+              {(['benedito_bentes'] as const).map((loja) => {
                 const labels: Record<string, string> = {
                   benedito_bentes: 'Benedito Bentes',
-                  vergel: 'Vergel do Lago',
-                  salvador_lyra: 'Salvador Lyra',
+                  // vergel: 'Vergel do Lago',
+                  // salvador_lyra: 'Salvador Lyra',
                 };
                 return (
                   <div key={loja}>
@@ -395,8 +409,8 @@ export default function ProductManager() {
                 </div>
 
                 <div className="text-[13px] lg:text-[14px] text-muted space-y-1 mb-5">
-                  {(['benedito_bentes', 'vergel', 'salvador_lyra'] as const).map((loja) => {
-                    const nomes: Record<string, string> = { benedito_bentes: 'BB', vergel: 'VG', salvador_lyra: 'SL' };
+                  {(['benedito_bentes'] as const).map((loja) => {
+                    const nomes: Record<string, string> = { benedito_bentes: 'BB' /*, vergel: 'VG', salvador_lyra: 'SL' */ };
                     const storePrice: StorePrice | undefined = produto.precos?.[loja];
                     return storePrice?.valor ? (
                       <div key={loja}>

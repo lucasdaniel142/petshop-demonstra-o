@@ -1,18 +1,7 @@
 // src/store/useCartStore.ts
 // ============================================================
-// ESTE É O ARQUIVO CORRETO. O src/store/useCartStore.tsx DEVE SER DELETADO.
-//
-// Diferença em updateQuantity entre os dois arquivos:
-//
-//   useCartStore.tsx (alternativo):
-//     usa Math.max(1, ...) — nunca permite quantidade 0
-//     usa .filter((item) => item.quantity > 0) — redundante
-//
-//   useCartStore.ts (este, correto):
-//     permite quantity <= 0 → remove o item do carrinho
-//     comportamento correto: decrementar até 0 = remover
-//
-// AÇÃO NECESSÁRIA: deletar src/store/useCartStore.tsx
+// Store principal do carrinho com suporte a taxa de entrega
+// dinâmica por distância (Haversine + Nominatim).
 // ============================================================
 
 import { create } from 'zustand';
@@ -21,9 +10,18 @@ import type { CartItem, Product } from '../types';
 
 const MAX_QUANTITY = 99;
 
+interface DeliveryInfo {
+  distanceKm: number;
+  fee: number;
+  isInRange: boolean;
+  description: string;
+}
+
 interface CartState {
   items: CartItem[];
   isCartOpen: boolean;
+  /** Informações de entrega calculadas por distância */
+  delivery: DeliveryInfo | null;
   addItem: (product: Product) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -31,6 +29,10 @@ interface CartState {
   toggleCart: () => void;
   getCartTotal: () => number;
   getItemQuantity: (productId: string) => number;
+  /** Define as informações de entrega (chamado após geocoding) */
+  setDeliveryInfo: (info: DeliveryInfo | null) => void;
+  /** Limpa as informações de entrega */
+  clearDelivery: () => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -38,6 +40,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       isCartOpen: false,
+      delivery: null,
 
       addItem: (product) => {
         set((state) => {
@@ -77,7 +80,7 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      clearCart: () => set({ items: [] }),
+      clearCart: () => set({ items: [], delivery: null }),
 
       toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
 
@@ -86,12 +89,16 @@ export const useCartStore = create<CartState>()(
 
       getItemQuantity: (productId) =>
         get().items.find((i) => i.id === productId)?.quantity ?? 0,
+
+      setDeliveryInfo: (info) => set({ delivery: info }),
+
+      clearDelivery: () => set({ delivery: null }),
     }),
     {
-      name: 'sagrada-familia-cart',
+      name: 'ecommerce-cart',
       // sessionStorage: limpa ao fechar a aba — evita preços obsoletos persistidos
       storage: createJSONStorage(() => sessionStorage),
-      // Persistir apenas items, nunca isCartOpen (drawer começa fechado)
+      // Persistir apenas items, nunca isCartOpen ou delivery
       partialize: (state) => ({ items: state.items }),
     }
   )

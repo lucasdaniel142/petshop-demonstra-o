@@ -9,8 +9,8 @@ import type { StoreId } from '../types';
 
 export const DELIVERY_FEES: Record<StoreId, number> = {
   benedito_bentes: Number(import.meta.env.VITE_TAXA_BENEDITO_BENTES) || 0,
-  vergel:          Number(import.meta.env.VITE_TAXA_VERGEL) || 0,
-  salvador_lyra:   Number(import.meta.env.VITE_TAXA_SALVADOR_LYRA) || 0,
+  // vergel:          Number(import.meta.env.VITE_TAXA_VERGEL) || 0,
+  // salvador_lyra:   Number(import.meta.env.VITE_TAXA_SALVADOR_LYRA) || 0,
 };
 
 /**

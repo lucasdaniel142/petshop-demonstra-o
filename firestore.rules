@@ -57,14 +57,26 @@ service cloud.firestore {
     }
 
     // --- COLEÇÃO: admins ---
-    // Leitura: qualquer usuário autenticado pode ler SEU PRÓPRIO documento.
-    //   Isso é necessário para o AuthContext verificar a role no login.
+    // Leitura:
+    //   - Qualquer usuário autenticado pode ler SEU PRÓPRIO documento
+    //     (necessário para o AuthContext verificar a role no login).
+    //   - Admins podem listar TODOS os documentos
+    //     (necessário para o TeamManager exibir a equipe).
     // Escrita: somente outros admins podem criar/remover entradas.
-    //   IDEAL: Mover isso para uma Cloud Function com Admin SDK para
-    //   eliminar completamente a escrita do cliente nesta coleção sensível.
     match /admins/{adminId} {
-      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow read: if request.auth != null &&
+                     (request.auth.uid == adminId || isAdmin());
       allow write: if isAdmin();
+    }
+
+    // --- COLEÇÃO: pedidos ---
+    // Escrita: APENAS via Firebase Admin SDK (webhook serverless).
+    //   O client-side NUNCA escreve diretamente nesta coleção.
+    //   O Admin SDK (usado nas Vercel API Routes) ignora estas regras.
+    // Leitura: Admins podem ler todos os pedidos (para gestão).
+    match /pedidos/{pedidoId} {
+      allow read: if isAdmin();
+      allow write: if false; // Bloqueado no client — apenas Admin SDK via webhook
     }
 
     // --- PADRÃO: Bloquear tudo que não foi explicitamente permitido ---

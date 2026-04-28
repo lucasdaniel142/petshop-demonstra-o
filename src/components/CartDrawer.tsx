@@ -1,9 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { X, Trash2, ShoppingBag, MessageCircle } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { X, Trash2, ShoppingBag, MessageCircle, MapPin, Loader2, CreditCard } from 'lucide-react';
 import { useCart } from '../hooks/useCart';
 import { generateWhatsAppLink, STORE_WHATSAPP_NUMBERS } from '../utils/whatsapp';
-import { getDeliveryFee } from '../utils/deliveryFee';
 import { DEFAULT_PLACEHOLDER_IMAGE } from '../utils/placeholderImage';
+import { fetchAddressFromCEP, geocodeAddress, haversineDistance } from '../utils/geolocation';
+import { formatCPF, isValidCPF, cleanCPF } from '../utils/cpf';
+import { STORE_COORDINATES, calculateDeliveryFee, DELIVERY_BASE_FEE, DELIVERY_MAX_RADIUS_KM } from '../config/delivery';
+import { CheckoutModal } from './checkout/CheckoutModal';
+import { usePaymentStore } from '../store/usePaymentStore';
 import type { StoreId } from '../types';
 
 interface CartDrawerProps {
@@ -20,11 +24,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     removeItem,
     clearCart,
     cartTotal,
+    delivery,
+    setDeliveryInfo,
+    totalWithDelivery,
   } = useCart();
 
-  // Taxa de entrega reativa: muda instantaneamente ao trocar de loja
-  const deliveryFee = getDeliveryFee(selectedStoreId);
-  const totalGeral = cartTotal + deliveryFee;
+  // Taxa de entrega: dinâmica (por distância) ou fallback estático
+  const deliveryFee = delivery?.fee ?? DELIVERY_BASE_FEE;
+  const totalGeral = delivery ? totalWithDelivery : cartTotal + DELIVERY_BASE_FEE;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -32,8 +39,86 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+  const [cep, setCep] = useState('');
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+
+  // Estado de email e CPF (para pagamento online)
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerCpf, setCustomerCpf] = useState('');
+  const [cpfError, setCpfError] = useState<string | null>(null);
+
+  // Payment store
+  const { openCheckout, isCheckoutOpen, closeCheckout, reset: resetPayment } = usePaymentStore();
+
   const isNameInvalid = checkoutError !== null && !customerName.trim();
   const isAddressInvalid = checkoutError !== null && !deliveryAddress.trim();
+  const isCepInvalid = checkoutError !== null && cep.replace(/\D/g, '').length !== 8;
+
+  // ── Busca de CEP + Geocoding + Cálculo de distância ──
+  const handleCepLookup = useCallback(async (rawCep: string) => {
+    const cleanCep = rawCep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) return;
+
+    setIsLoadingCep(true);
+    setCepError(null);
+
+    try {
+      // 1. ViaCEP: CEP → Endereço
+      const address = await fetchAddressFromCEP(cleanCep);
+      if (!address) {
+        setCepError('CEP não encontrado.');
+        setIsLoadingCep(false);
+        return;
+      }
+
+      // Preenche o campo de endereço automaticamente
+      setDeliveryAddress(address.formatted);
+
+      // 2. Nominatim: Endereço → Coordenadas
+      const coords = await geocodeAddress(`${address.formatted}, Brasil`);
+      if (!coords) {
+        // Geocoding falhou — usa taxa fixa como fallback
+        setCepError(null);
+        setIsLoadingCep(false);
+        return;
+      }
+
+      // 3. Haversine: Coordenadas → Distância
+      const distanceKm = haversineDistance(STORE_COORDINATES, coords);
+
+      // 4. Cálculo da taxa
+      const result = calculateDeliveryFee(distanceKm);
+      setDeliveryInfo(result);
+
+      if (!result.isInRange) {
+        setCepError(`Endereço fora da área de entrega (${result.distanceKm} km). Máximo: ${DELIVERY_MAX_RADIUS_KM} km.`);
+      }
+    } catch {
+      setCepError('Erro ao buscar o CEP. Tente novamente.');
+    } finally {
+      setIsLoadingCep(false);
+    }
+  }, [setDeliveryInfo]);
+
+  // SECURITY: Debounce para evitar flood de requests ao Nominatim (limite: 1 req/s)
+  const lastCepLookupRef = useRef<number>(0);
+
+  // Formata CEP enquanto digita (00000-000)
+  const handleCepChange = useCallback((value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    const formatted = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+    setCep(formatted);
+    setCepError(null);
+
+    // Auto-busca quando completa 8 dígitos (com debounce de 1s)
+    if (digits.length === 8) {
+      const now = Date.now();
+      if (now - lastCepLookupRef.current < 1000) return; // Cooldown de 1s
+      lastCepLookupRef.current = now;
+      handleCepLookup(digits);
+    }
+  }, [handleCepLookup]);
 
   // Trava scroll do body quando o drawer está aberto
   useEffect(() => {
@@ -48,8 +133,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
   };
 
   const handleConfirmOrder = () => {
-    if (!customerName.trim() || !deliveryAddress.trim()) {
-      setCheckoutError('Por favor, informe nome e endereço para concluir o pedido.');
+    if (!customerName.trim() || !deliveryAddress.trim() || cep.replace(/\D/g, '').length !== 8) {
+      setCheckoutError('Por favor, informe nome, CEP e endereço para concluir o pedido.');
       return;
     }
 
@@ -201,10 +286,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
             </div>
             {/* Taxa de Entrega */}
             <div className="flex justify-between text-[14px] text-muted">
-              <span>Taxa de Entrega</span>
-              <span className={deliveryFee === 0 ? 'text-green-600 font-semibold' : ''}>
-                {deliveryFee === 0 ? 'Grátis' : `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`}
-              </span>
+              <div className="flex items-center gap-1">
+                <span>Taxa de Entrega</span>
+                {delivery && <MapPin size={12} className="text-primary" />}
+              </div>
+              <div className="text-right">
+                <span className={deliveryFee === 0 ? 'text-green-600 font-semibold' : ''}>
+                  {deliveryFee === 0 ? 'Grátis' : `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`}
+                </span>
+                {delivery && (
+                  <div className="text-[11px] text-muted">{delivery.description}</div>
+                )}
+              </div>
             </div>
             {/* Linha divisória */}
             <div className="border-t border-dashed border-gray-200" />
@@ -275,6 +368,44 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                 />
               </div>
 
+              {/* CEP com busca automática */}
+              <div>
+                <label htmlFor="cart-cep" className="flex justify-between items-center text-[13px] font-[600] text-text mb-2">
+                  <span>CEP</span>
+                  <span className={isCepInvalid ? 'text-red-600 font-bold opacity-100 transition-all duration-300' : 'text-red-500 opacity-50'}>
+                    * Obrigatório preencher.
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="cart-cep"
+                    type="text"
+                    value={cep}
+                    onChange={(e) => handleCepChange(e.target.value)}
+                    className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors pr-10 ${isCepInvalid ? 'border-red-500 bg-red-50' : cepError ? 'border-red-500 bg-red-50' : 'border-border focus:border-primary'}`}
+                    placeholder="00000-000"
+                    inputMode="numeric"
+                    maxLength={9}
+                  />
+                  {isLoadingCep && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 size={16} className="animate-spin text-primary" />
+                    </div>
+                  )}
+                </div>
+                {cepError && (
+                  <p className="text-red-600 text-[12px] mt-1 flex items-center gap-1">
+                    <span>⚠️</span> {cepError}
+                  </p>
+                )}
+                {delivery && delivery.isInRange && (
+                  <p className="text-green-600 text-[12px] mt-1 flex items-center gap-1">
+                    <MapPin size={12} /> {delivery.description} — R$ {delivery.fee.toFixed(2).replace('.', ',')}
+                  </p>
+                )}
+              </div>
+
+              {/* Endereço (preenchido automaticamente pelo CEP) */}
               <div>
                 <label htmlFor="cart-address" className="flex justify-between items-center text-[13px] font-[600] text-text mb-2">
                   <span>Endereço de Entrega</span>
@@ -290,6 +421,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                   placeholder="Rua, número, bairro, cidade"
                   autoComplete="street-address"
                 />
+                <p className="text-[11px] text-muted mt-1">Complemento: adicione nº, apt, bloco, referência.</p>
               </div>
 
               <div>
@@ -309,25 +441,127 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                   <option value="Ticket (Alimentação/Refeição)">🎫 Ticket (Alimentação/Refeição)</option>
                 </select>
               </div>
+
+              {/* E-mail (para pagamento online) */}
+              <div>
+                <label htmlFor="cart-email" className="block text-[13px] font-[600] text-text mb-2">
+                  E-mail <span className="text-muted font-normal">(para pagamento online)</span>
+                </label>
+                <input
+                  id="cart-email"
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  className="w-full rounded-[10px] border border-border px-4 py-3 text-[14px] outline-none focus:border-primary transition-colors"
+                  placeholder="seu@email.com"
+                  autoComplete="email"
+                />
+              </div>
+
+              {/* CPF (para Pix) */}
+              <div>
+                <label htmlFor="cart-cpf" className="block text-[13px] font-[600] text-text mb-2">
+                  CPF <span className="text-muted font-normal">(para pagamento online)</span>
+                </label>
+                <input
+                  id="cart-cpf"
+                  type="text"
+                  value={customerCpf}
+                  onChange={(e) => {
+                    const formatted = formatCPF(e.target.value);
+                    setCustomerCpf(formatted);
+                    setCpfError(null);
+                    // Validar quando completo
+                    if (cleanCPF(formatted).length === 11 && !isValidCPF(formatted)) {
+                      setCpfError('CPF inválido.');
+                    }
+                  }}
+                  className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors ${cpfError ? 'border-red-500 bg-red-50' : 'border-border focus:border-primary'}`}
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  maxLength={14}
+                />
+                {cpfError && (
+                  <p className="text-red-600 text-[12px] mt-1">⚠️ {cpfError}</p>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-3 border-t border-border p-6">
+            <div className="flex flex-col gap-2 border-t border-border p-6">
+              {/* Botão WhatsApp */}
               <button
                 onClick={handleConfirmOrder}
-                className="flex-1 rounded-xl bg-accent text-on-accent py-3.5 font-extrabold shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark flex items-center justify-center gap-2"
+                className="w-full rounded-xl bg-accent text-on-accent py-3.5 font-extrabold shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark flex items-center justify-center gap-2"
               >
                 <MessageCircle size={18} className="text-on-accent shrink-0" strokeWidth={2.25} />
-                Enviar Pedido
+                Enviar via WhatsApp
               </button>
+
+              {/* Botão Pagar Online */}
+              <button
+                onClick={() => {
+                  if (!customerName.trim() || !deliveryAddress.trim() || cep.replace(/\D/g, '').length !== 8) {
+                    setCheckoutError('Preencha nome, CEP e endereço para pagar online.');
+                    return;
+                  }
+                  if (!customerEmail.trim() || !customerEmail.includes('@')) {
+                    setCheckoutError('Informe um e-mail válido para pagamento online.');
+                    return;
+                  }
+                  if (!isValidCPF(customerCpf)) {
+                    setCpfError('CPF obrigatório para pagamento online.');
+                    setCheckoutError('Informe um CPF válido para pagamento online.');
+                    return;
+                  }
+                  setCheckoutError(null);
+                  openCheckout();
+                }}
+                className="w-full rounded-xl bg-blue-600 text-white py-3.5 font-extrabold shadow-sm transition-colors hover:bg-blue-700 active:bg-blue-800 flex items-center justify-center gap-2"
+              >
+                <CreditCard size={18} strokeWidth={2.25} />
+                Pagar Online (Pix/Cartão)
+              </button>
+
               <button
                 onClick={handleCloseModal}
-                className="flex-1 rounded-[10px] border border-border text-text py-3 font-[600] hover:bg-[#F8F8F8] transition-colors"
+                className="w-full rounded-[10px] border border-border text-text py-3 font-[600] hover:bg-[#F8F8F8] transition-colors"
               >
                 Voltar
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Pagamento Online (Mercado Pago) */}
+      {isCheckoutOpen && (
+        <CheckoutModal
+          customerName={customerName}
+          customerEmail={customerEmail}
+          customerCpf={cleanCPF(customerCpf)}
+          deliveryAddress={deliveryAddress}
+          cep={cep}
+          storeId={selectedStoreId}
+          storeLabel={selectedStoreLabel}
+          subtotal={cartTotal}
+          deliveryFee={deliveryFee}
+          total={totalGeral}
+          items={items}
+          onClose={() => {
+            closeCheckout();
+          }}
+          onSuccess={() => {
+            resetPayment();
+            clearCart();
+            setIsModalOpen(false);
+            setCustomerName('');
+            setDeliveryAddress('');
+            setCustomerEmail('');
+            setCustomerCpf('');
+            setCep('');
+            toggleCart();
+          }}
+        />
       )}
     </>
   );

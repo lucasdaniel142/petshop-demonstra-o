@@ -92,7 +92,7 @@ export const TeamManager: React.FC = () => {
         setLoadingAdmins(false);
       },
       (err) => {
-        console.error('Erro ao buscar admins:', err);
+        if (import.meta.env.DEV) console.error('Erro ao buscar admins:', err);
         setFeedback({ type: 'error', message: 'Erro ao carregar a lista da equipe.' });
         setLoadingAdmins(false);
       }
@@ -131,7 +131,7 @@ export const TeamManager: React.FC = () => {
       showFeedback('success', `Administrador "${formData.nome}" cadastrado com sucesso!`);
       setFormData({ nome: '', email: '', senha: '', unidade: 'geral' });
     } catch (error: unknown) {
-      console.error('Erro ao criar admin:', error);
+      if (import.meta.env.DEV) console.error('Erro ao criar admin:', error);
       showFeedback('error', getFirebaseErrorMessage(error));
     } finally {
       setIsSubmitting(false);
@@ -144,7 +144,7 @@ export const TeamManager: React.FC = () => {
       await deleteDoc(doc(db, 'admins', removeTarget.id));
       showFeedback('success', `Acesso de "${removeTarget.nome}" removido com sucesso.`);
     } catch (error) {
-      console.error('Erro ao remover admin:', error);
+      if (import.meta.env.DEV) console.error('Erro ao remover admin:', error);
       showFeedback('error', 'Erro ao remover acesso. Tente novamente.');
     } finally {
       setRemoveTarget(null);
@@ -198,7 +198,7 @@ export const TeamManager: React.FC = () => {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full bg-[#F0F2F2] border border-transparent rounded-[8px] px-4 py-2.5 text-[14px] outline-none focus:border-primary focus:bg-white transition-colors"
-                  placeholder="maria@sagradafamilia.com"
+                  placeholder="maria@minhaloja.com"
                 />
               </div>
 

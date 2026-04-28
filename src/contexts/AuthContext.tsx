@@ -83,7 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         // FIX #2: Em caso de ERRO (ex: Firestore offline, regra de segurança),
         // também deslogamos para evitar estado indeterminado.
-        console.error('Erro ao verificar permissões de admin:', error);
+        if (import.meta.env.DEV) {
+          console.error('Erro ao verificar permissões de admin:', error);
+        }
         await signOut(auth).catch(() => {}); // .catch() evita unhandled rejection se signOut também falhar
         setCurrentUser(null);
         setIsAdmin(false);
