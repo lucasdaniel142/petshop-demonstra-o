@@ -8,7 +8,9 @@ import { formatCPF, isValidCPF, cleanCPF } from '../utils/cpf';
 import { STORE_COORDINATES, calculateDeliveryFee, DELIVERY_BASE_FEE, DELIVERY_MAX_RADIUS_KM } from '../config/delivery';
 import { CheckoutModal } from './checkout/CheckoutModal';
 import { usePaymentStore } from '../store/usePaymentStore';
+import { isStoreOpen, getStoreHoursLabel } from '../config/businessHours';
 import type { StoreId } from '../types';
+import { Link } from 'react-router-dom';
 
 interface CartDrawerProps {
   selectedStoreLabel: string;
@@ -37,6 +39,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
   const [customerName, setCustomerName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
+  const [paymentLocation, setPaymentLocation] = useState<'online' | 'delivery'>('delivery');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const [cep, setCep] = useState('');
@@ -47,6 +50,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerCpf, setCustomerCpf] = useState('');
   const [cpfError, setCpfError] = useState<string | null>(null);
+
+  // LGPD: Consentimento de política de privacidade
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   // Payment store
   const { openCheckout, isCheckoutOpen, closeCheckout, reset: resetPayment } = usePaymentStore();
@@ -73,10 +79,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       }
 
       // Preenche o campo de endereço automaticamente
-      setDeliveryAddress(address.formatted);
+      setDeliveryAddress(address.formatted || '');
 
       // 2. Nominatim: Endereço → Coordenadas
-      const coords = await geocodeAddress(`${address.formatted}, Brasil`);
+      const geocodeString = `${address.logradouro}, ${address.bairro}, ${address.localidade}, ${address.uf}, Brasil`;
+      const coords = await geocodeAddress(geocodeString);
       if (!coords) {
         // Geocoding falhou — usa taxa fixa como fallback
         setCepError(null);
@@ -85,7 +92,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       }
 
       // 3. Haversine: Coordenadas → Distância
-      const distanceKm = haversineDistance(STORE_COORDINATES, coords);
+      const distanceKm = haversineDistance(STORE_COORDINATES[selectedStoreId], coords);
 
       // 4. Cálculo da taxa
       const result = calculateDeliveryFee(distanceKm);
@@ -128,6 +135,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
 
   const handleCheckout = () => {
     if (items.length === 0) return;
+    if (!isStoreOpen()) {
+      setCheckoutError(`Estamos fechados no momento. Horário de funcionamento: ${getStoreHoursLabel()}.`);
+      // We don't open the modal, but the error will now be shown in the cart drawer
+      return;
+    }
     setCheckoutError(null);
     setIsModalOpen(true);
   };
@@ -147,7 +159,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       paymentMethod,
       selectedStoreLabel,
       storePhone,
-      deliveryFee
+      deliveryFee,
+      paymentLocation
     );
 
     if (!link) {
@@ -306,6 +319,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
               <span>Total</span>
               <span>R$ {(totalGeral || 0).toFixed(2).replace('.', ',')}</span>
             </div>
+            {/* Error Message na gaveta */}
+            {checkoutError && !isModalOpen && (
+              <div className="rounded-[10px] bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-start gap-2">
+                <span className="shrink-0 mt-0.5">⚠️</span>
+                <span>{checkoutError}</span>
+              </div>
+            )}
             <button
               onClick={handleCheckout}
               className="w-full min-h-[52px] px-4 bg-accent text-on-accent rounded-xl font-extrabold text-[14px] tracking-wide flex items-center justify-center gap-2 shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark"
@@ -325,8 +345,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
           aria-modal="true"
           aria-label="Finalizar pedido"
         >
-          <div className="w-full max-w-md rounded-[16px] bg-white shadow-xl overflow-hidden">
-            <div className="flex items-start justify-between border-b border-border p-6">
+          <div className="w-full max-w-md rounded-[16px] bg-white shadow-xl overflow-hidden flex flex-col max-h-[95vh]">
+            <div className="flex items-start justify-between border-b border-border p-6 shrink-0">
               <div>
                 <h2 className="text-[18px] font-[800] text-text">Finalizar Pedido</h2>
                 <p className="text-[13px] text-muted mt-1">
@@ -342,7 +362,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               {checkoutError && (
                 <div className="rounded-[10px] bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-start gap-2">
                   <span className="shrink-0 mt-0.5">⚠️</span>
@@ -431,7 +451,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                 <select
                   id="cart-payment"
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => {
+                    const method = e.target.value;
+                    setPaymentMethod(method);
+                    // Reset to delivery by default when changing method to avoid confusion
+                    if (method === 'Dinheiro' || method === 'Ticket (Alimentação/Refeição)') {
+                      setPaymentLocation('delivery');
+                    }
+                  }}
                   className="w-full rounded-[10px] border border-border px-4 py-3 text-[14px] outline-none focus:border-primary transition-colors"
                 >
                   <option value="Dinheiro">💵 Dinheiro</option>
@@ -442,85 +469,149 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                 </select>
               </div>
 
-              {/* E-mail (para pagamento online) */}
-              <div>
-                <label htmlFor="cart-email" className="block text-[13px] font-[600] text-text mb-2">
-                  E-mail <span className="text-muted font-normal">(para pagamento online)</span>
-                </label>
-                <input
-                  id="cart-email"
-                  type="email"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  className="w-full rounded-[10px] border border-border px-4 py-3 text-[14px] outline-none focus:border-primary transition-colors"
-                  placeholder="seu@email.com"
-                  autoComplete="email"
-                />
-              </div>
+              {/* Pergunta "Onde deseja pagar?" se for Pix ou Cartão */}
+              {['Pix', 'Cartão de Crédito', 'Cartão de Débito'].includes(paymentMethod) && (
+                <div>
+                  <label className="block text-[13px] font-[600] text-text mb-2">
+                    Onde deseja pagar?
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentLocation('online')}
+                      className={`py-2 px-3 rounded-[10px] border text-[13px] font-[600] transition-colors ${
+                        paymentLocation === 'online'
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'border-border text-muted hover:border-primary/50'
+                      }`}
+                    >
+                      Pagar Online
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentLocation('delivery')}
+                      className={`py-2 px-3 rounded-[10px] border text-[13px] font-[600] transition-colors ${
+                        paymentLocation === 'delivery'
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'border-border text-muted hover:border-primary/50'
+                      }`}
+                    >
+                      Com o Entregador
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              {/* CPF (para Pix) */}
-              <div>
-                <label htmlFor="cart-cpf" className="block text-[13px] font-[600] text-text mb-2">
-                  CPF <span className="text-muted font-normal">(para pagamento online)</span>
-                </label>
-                <input
-                  id="cart-cpf"
-                  type="text"
-                  value={customerCpf}
-                  onChange={(e) => {
-                    const formatted = formatCPF(e.target.value);
-                    setCustomerCpf(formatted);
-                    setCpfError(null);
-                    // Validar quando completo
-                    if (cleanCPF(formatted).length === 11 && !isValidCPF(formatted)) {
-                      setCpfError('CPF inválido.');
-                    }
-                  }}
-                  className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors ${cpfError ? 'border-red-500 bg-red-50' : 'border-border focus:border-primary'}`}
-                  placeholder="000.000.000-00"
-                  inputMode="numeric"
-                  maxLength={14}
-                />
-                {cpfError && (
-                  <p className="text-red-600 text-[12px] mt-1">⚠️ {cpfError}</p>
-                )}
-              </div>
+              {/* E-mail e CPF (Apenas para pagamento online) */}
+              {paymentLocation === 'online' && (
+                <>
+                  <div>
+                    <label htmlFor="cart-email" className="block text-[13px] font-[600] text-text mb-2">
+                      E-mail <span className="text-muted font-normal">(para pagamento online)</span>
+                    </label>
+                    <input
+                      id="cart-email"
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      className="w-full rounded-[10px] border border-border px-4 py-3 text-[14px] outline-none focus:border-primary transition-colors"
+                      placeholder="seu@email.com"
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="cart-cpf" className="block text-[13px] font-[600] text-text mb-2">
+                      CPF <span className="text-muted font-normal">(para pagamento online)</span>
+                    </label>
+                    <input
+                      id="cart-cpf"
+                      type="text"
+                      value={customerCpf}
+                      onChange={(e) => {
+                        const formatted = formatCPF(e.target.value);
+                        setCustomerCpf(formatted);
+                        setCpfError(null);
+                        // Validar quando completo
+                        if (cleanCPF(formatted).length === 11 && !isValidCPF(formatted)) {
+                          setCpfError('CPF inválido.');
+                        }
+                      }}
+                      className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors ${cpfError ? 'border-red-500 bg-red-50' : 'border-border focus:border-primary'}`}
+                      placeholder="000.000.000-00"
+                      inputMode="numeric"
+                      maxLength={14}
+                    />
+                    {cpfError && (
+                      <p className="text-red-600 text-[12px] mt-1">⚠️ {cpfError}</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-border p-6">
-              {/* Botão WhatsApp */}
-              <button
-                onClick={handleConfirmOrder}
-                className="w-full rounded-xl bg-accent text-on-accent py-3.5 font-extrabold shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark flex items-center justify-center gap-2"
-              >
-                <MessageCircle size={18} className="text-on-accent shrink-0" strokeWidth={2.25} />
-                Enviar via WhatsApp
-              </button>
+            {/* LGPD: Consentimento de Política de Privacidade */}
+            <div className="px-6 pb-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary shrink-0"
+                />
+                <span className="text-[12px] text-gray-600 leading-snug">
+                  Li e aceito a{' '}
+                  <Link
+                    to="/privacidade"
+                    target="_blank"
+                    className="text-primary font-semibold hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Política de Privacidade
+                  </Link>
+                  . Autorizo o uso dos meus dados para processamento do pedido conforme a LGPD.
+                </span>
+              </label>
+            </div>
 
-              {/* Botão Pagar Online */}
-              <button
-                onClick={() => {
-                  if (!customerName.trim() || !deliveryAddress.trim() || cep.replace(/\D/g, '').length !== 8) {
-                    setCheckoutError('Preencha nome, CEP e endereço para pagar online.');
-                    return;
-                  }
-                  if (!customerEmail.trim() || !customerEmail.includes('@')) {
-                    setCheckoutError('Informe um e-mail válido para pagamento online.');
-                    return;
-                  }
-                  if (!isValidCPF(customerCpf)) {
-                    setCpfError('CPF obrigatório para pagamento online.');
-                    setCheckoutError('Informe um CPF válido para pagamento online.');
-                    return;
-                  }
-                  setCheckoutError(null);
-                  openCheckout();
-                }}
-                className="w-full rounded-xl bg-blue-600 text-white py-3.5 font-extrabold shadow-sm transition-colors hover:bg-blue-700 active:bg-blue-800 flex items-center justify-center gap-2"
-              >
-                <CreditCard size={18} strokeWidth={2.25} />
-                Pagar Online (Pix/Cartão)
-              </button>
+            <div className="flex flex-col gap-2 border-t border-border p-6 shrink-0">
+              {paymentLocation === 'delivery' && (
+                <button
+                  onClick={handleConfirmOrder}
+                  disabled={!privacyAccepted}
+                  className="w-full rounded-xl bg-accent text-on-accent py-3.5 font-extrabold shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <MessageCircle size={18} className="text-on-accent shrink-0" strokeWidth={2.25} />
+                  Enviar via WhatsApp
+                </button>
+              )}
+
+              {paymentLocation === 'online' && (
+                <button
+                  onClick={() => {
+                    if (!customerName.trim() || !deliveryAddress.trim() || cep.replace(/\D/g, '').length !== 8) {
+                      setCheckoutError('Preencha nome, CEP e endereço para pagar online.');
+                      return;
+                    }
+                    if (!customerEmail.trim() || !customerEmail.includes('@')) {
+                      setCheckoutError('Informe um e-mail válido para pagamento online.');
+                      return;
+                    }
+                    if (!isValidCPF(customerCpf)) {
+                      setCpfError('CPF obrigatório para pagamento online.');
+                      setCheckoutError('Informe um CPF válido para pagamento online.');
+                      return;
+                    }
+                    setCheckoutError(null);
+                    openCheckout();
+                  }}
+                  disabled={!privacyAccepted}
+                  className="w-full rounded-xl bg-blue-600 text-white py-3.5 font-extrabold shadow-sm transition-colors hover:bg-blue-700 active:bg-blue-800 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CreditCard size={18} strokeWidth={2.25} />
+                  Pagar Online (Pix/Cartão)
+                </button>
+              )}
 
               <button
                 onClick={handleCloseModal}
@@ -543,6 +634,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
           cep={cep}
           storeId={selectedStoreId}
           storeLabel={selectedStoreLabel}
+          distanceKm={delivery?.distanceKm || 0}
           subtotal={cartTotal}
           deliveryFee={deliveryFee}
           total={totalGeral}
@@ -551,6 +643,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
             closeCheckout();
           }}
           onSuccess={() => {
+            // Se o pagamento online foi concluído com sucesso, gerar o link do whatsapp e enviar
+            const storePhone = STORE_WHATSAPP_NUMBERS[selectedStoreId];
+            const link = generateWhatsAppLink(
+              items,
+              cartTotal,
+              customerName,
+              deliveryAddress,
+              paymentMethod,
+              selectedStoreLabel,
+              storePhone,
+              deliveryFee,
+              'online' // Garantir que está sendo passado 'online'
+            );
+
+            if (link) {
+              window.open(link, '_blank', 'noopener,noreferrer');
+            }
+
             resetPayment();
             clearCart();
             setIsModalOpen(false);

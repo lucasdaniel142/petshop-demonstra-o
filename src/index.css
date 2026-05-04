@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  /* White Label — Cores Neutras */
-  --color-primary: #1e293b;       /* slate-800 */
-  --color-primary-dark: #0f172a;  /* slate-900 */
-  --color-accent: #334155;        /* slate-700 */
-  --color-accent-dark: #1e293b;   /* slate-800 */
-  --color-secondary: #475569;     /* slate-600 */
+  /* White Label — Cores Sagrada Família */
+  --color-primary: #004b22;       /* Verde Escuro */
+  --color-primary-dark: #003a1a;
+  --color-accent: #00c900;        /* Verde Limão */
+  --color-accent-dark: #00a800;
+  --color-secondary: #00c900;
   --color-on-primary: #ffffff;
   --color-on-accent: #ffffff;
-  --color-bg: #f9fafb;
+  --color-bg: #ffffff;            /* Fundo Branco Dominante */
   --color-card: #ffffff;
-  --color-text: #333333;
-  --color-muted: #757575;
-  --color-border: #e5e7eb;
+  --color-text: #004b22;          /* Texto principal em verde escuro para harmonia */
+  --color-muted: #666666;
+  --color-border: #f0f0f0;
 }
 
 .scrollbar-hide {

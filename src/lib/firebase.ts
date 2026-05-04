@@ -23,6 +23,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getMessaging, isSupported } from 'firebase/messaging';
 
 const requireEnv = (key: string): string => {
   const value = import.meta.env[key];
@@ -52,6 +53,16 @@ if (import.meta.env.DEV) {
   });
 }
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Só inicializa o messaging se o navegador suportar (ex: Safari iOS antigo pode não suportar)
+let messagingInstance: ReturnType<typeof getMessaging> | null = null;
+isSupported().then((supported) => {
+  if (supported) {
+    messagingInstance = getMessaging(app);
+  }
+});
+
+export const getFirebaseMessaging = () => messagingInstance;

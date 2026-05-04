@@ -16,6 +16,8 @@ import { collection, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { parseCSV, toFirestorePayload, normalizeName, MAX_CSV_SIZE_BYTES, type ParseResult } from '../../utils/csvParser';
 
+const IMGBB_UPLOAD_URL = `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`;
+
 interface BulkImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -30,8 +32,6 @@ interface ImageMatch {
   previewUrl: string;
   uploadedUrl: string | null;
 }
-
-const IMGBB_UPLOAD_URL = `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`;
 
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [step, setStep] = useState<Step>('upload-csv');

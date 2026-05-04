@@ -48,6 +48,8 @@ const mpClient = new MercadoPagoConfig({ accessToken });
 const paymentApi = new Payment(mpClient);
 
 // ── Rate Limiting ──
+// ⚠️ LIMITAÇÃO CONHECIDA: Em serverless (Vercel), cada instância tem seu
+// próprio Map. Migrar para Upstash Redis ou Vercel KV antes de escalar.
 const webhookRateLimit = new Map<string, { count: number; resetAt: number }>();
 
 function isRateLimited(ip: string): boolean {
@@ -77,9 +79,11 @@ const TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000;
  */
 function verifyWebhookSignature(req: VercelRequest): boolean {
   if (!webhookSecret) {
-    // Se não configurou secret, aceitar mas logar warning
-    console.warn('[Webhook] MP_WEBHOOK_SECRET não configurado — aceitando sem verificação');
-    return true;
+    // SEGURANÇA: Se o secret não estiver configurado, REJEITAR.
+    // Aceitar sem verificação permitiria que qualquer atacante marcasse
+    // pedidos como 'approved' sem pagar. Configure MP_WEBHOOK_SECRET na Vercel.
+    console.error('[Webhook] FATAL: MP_WEBHOOK_SECRET não configurado — rejeitando requisição');
+    return false;
   }
 
   const xSignature = req.headers['x-signature'] as string;
@@ -173,7 +177,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // ── Verificar assinatura HMAC (algoritmo oficial do MP) ──
-    if (webhookSecret && !verifyWebhookSignature(req)) {
+    // SEGURANÇA: Sempre verificar — se MP_WEBHOOK_SECRET não estiver
+    // configurado, verifyWebhookSignature() retorna false e rejeita.
+    if (!verifyWebhookSignature(req)) {
       console.warn(`[Webhook] Assinatura inválida — IP: ${clientIp}`);
       return res.status(401).json({ error: 'Invalid signature' });
     }

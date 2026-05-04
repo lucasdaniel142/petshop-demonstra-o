@@ -4,12 +4,12 @@ import { BulkImportModal } from '../../components/admin/BulkImportModal';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { FeedbackBanner } from '../../components/ui/FeedbackBanner';
-import type { ManagedProduct, FeedbackState, StorePrice } from '../../types';
+import type { ManagedProduct, FeedbackState, StorePrice, StoreId } from '../../types';
 import { DEFAULT_STORE_PRICE } from '../../types';
-import { PRODUCT_CATEGORIES } from '../../utils/constants';
+import { PRODUCT_CATEGORIES, STORE_IDS, ADMIN_STORES } from '../../utils/constants';
 
 // FIX #1: Chave nunca deve ir hardcoded no bundle.
-// Adicione ao .env.local: VITE_IMGBB_API_KEY=fec85a3d9478920c446d19555a6df08c
+// Adicione ao .env.local a sua chave do ImgBB (VITE_IMGBB_API_KEY)
 const IMGBB_UPLOAD_URL = `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`;
 
 const EMPTY_FORM: Omit<ManagedProduct, 'id'> = {
@@ -18,11 +18,10 @@ const EMPTY_FORM: Omit<ManagedProduct, 'id'> = {
   imageUrl: '',
   categoria: 'Mercearia',
   unit: 'un',
-  precos: {
-    benedito_bentes: { ...DEFAULT_STORE_PRICE },
-    // vergel: { ...DEFAULT_STORE_PRICE },
-    // salvador_lyra: { ...DEFAULT_STORE_PRICE },
-  },
+  precos: STORE_IDS.reduce((acc, id) => ({
+    ...acc,
+    [id]: { ...DEFAULT_STORE_PRICE }
+  }), {} as Record<StoreId, StorePrice>),
 };
 
 const DeleteConfirmModal: React.FC<{
@@ -338,22 +337,17 @@ export default function ProductManager() {
 
           <div className="border-t border-border pt-6 mb-6">
             <h3 className="text-[15px] lg:text-[16px] font-[700] text-text mb-4">Preço por Loja (R$)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {(['benedito_bentes'] as const).map((loja) => {
-                const labels: Record<string, string> = {
-                  benedito_bentes: 'Benedito Bentes',
-                  // vergel: 'Vergel do Lago',
-                  // salvador_lyra: 'Salvador Lyra',
-                };
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {ADMIN_STORES.map((loja) => {
                 return (
-                  <div key={loja}>
-                    <label className="block text-[13px] font-[600] text-text mb-2">{labels[loja]}</label>
+                  <div key={loja.id}>
+                    <label className="block text-[13px] font-[600] text-text mb-2">{loja.label}</label>
                     <div className="flex items-center gap-2">
                       <span className="text-muted text-[14px] font-[600] shrink-0">R$</span>
                       <input
                         type="number"
-                        value={formData.precos[loja].valor === 0 ? '' : formData.precos[loja].valor}
-                        onChange={(e) => handlePriceChange(loja, e.target.value)}
+                        value={formData.precos[loja.id].valor === 0 ? '' : formData.precos[loja.id].valor}
+                        onChange={(e) => handlePriceChange(loja.id, e.target.value)}
                         step="0.01"
                         min="0"
                         className="w-full bg-[#F0F2F2] border border-transparent rounded-[8px] px-4 py-3 text-[14px] outline-none focus:border-primary focus:bg-white transition-colors"
@@ -409,12 +403,11 @@ export default function ProductManager() {
                 </div>
 
                 <div className="text-[13px] lg:text-[14px] text-muted space-y-1 mb-5">
-                  {(['benedito_bentes'] as const).map((loja) => {
-                    const nomes: Record<string, string> = { benedito_bentes: 'BB' /*, vergel: 'VG', salvador_lyra: 'SL' */ };
-                    const storePrice: StorePrice | undefined = produto.precos?.[loja];
+                  {ADMIN_STORES.map((loja) => {
+                    const storePrice: StorePrice | undefined = produto.precos?.[loja.id];
                     return storePrice?.valor ? (
-                      <div key={loja}>
-                        <strong className="text-text font-semibold">{nomes[loja]}:</strong> R$ {(storePrice.valor || 0).toFixed(2)}
+                      <div key={loja.id}>
+                        <strong className="text-text font-semibold">{loja.label}:</strong> R$ {(storePrice.valor || 0).toFixed(2)}
                       </div>
                     ) : null;
                   })}

@@ -13,6 +13,8 @@ import { AdminLayout } from './pages/admin/AdminLayout';
 import { PriceManager } from './pages/admin/PriceManager';
 import { TeamManager } from './pages/admin/TeamManager';
 import ProductManager from './pages/admin/ProductManager';
+import { OrderManager } from './pages/admin/OrderManager';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 
 export default function App() {
   return (
@@ -21,6 +23,7 @@ export default function App() {
         <Routes>
           {/* Rota Pública (Vitrine) */}
           <Route path="/" element={<Home />} />
+          <Route path="/privacidade" element={<PrivacyPolicy />} />
 
           {/* Rotas Administrativas */}
           <Route path="/login" element={<Login />} />
@@ -37,6 +40,7 @@ export default function App() {
             <Route index element={<PriceManager />} />
             <Route path="equipe" element={<TeamManager />} />
             <Route path="produtos" element={<ProductManager />} />
+            <Route path="pedidos" element={<OrderManager />} />
           </Route>
         </Routes>
       </BrowserRouter>

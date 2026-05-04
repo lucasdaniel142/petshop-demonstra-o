@@ -22,6 +22,7 @@ export interface ViaCEPResponse {
   localidade: string;
   uf: string;
   erro?: boolean;
+  formatted?: string;
 }
 
 /**
@@ -57,6 +58,9 @@ export async function fetchAddressFromCEP(cep: string): Promise<ViaCEPResponse |
 
     const data: ViaCEPResponse = await response.json();
     if (data.erro) return null;
+    
+    // Adicionamos campos para facilitar a edição do cliente: número e ponto de referência
+    data.formatted = `${data.logradouro}, Número: \nBairro: ${data.bairro}, ${data.localidade} - ${data.uf}\nPonto de Referência: `;
 
     return data;
   } catch {

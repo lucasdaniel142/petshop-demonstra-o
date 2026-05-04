@@ -8,26 +8,36 @@
 import React, { useState } from 'react';
 import { CreditCard, ArrowLeft } from 'lucide-react';
 import { usePaymentStore } from '../../store/usePaymentStore';
+import type { CartItem } from '../../types';
 
 interface CardFormProps {
   customerName: string;
   customerEmail: string;
   customerCpf: string;
-  total: number;
+  deliveryAddress: string;
+  cep: string;
+  storeId: string;
+  storeLabel: string;
+  distanceKm: number;
   subtotal: number;
   deliveryFee: number;
-  storeLabel: string;
-  [key: string]: any;
+  total: number;
+  items: CartItem[];
 }
 
 export const CardForm: React.FC<CardFormProps> = ({
   customerName,
   customerEmail,
   customerCpf,
+  deliveryAddress,
+  cep,
+  storeId,
+  storeLabel,
+  distanceKm,
   total,
   subtotal,
   deliveryFee,
-  storeLabel,
+  items,
 }) => {
   const { setProcessing, setApproved, setRejected, setError, setMethod } = usePaymentStore();
 
@@ -124,9 +134,14 @@ export const CardForm: React.FC<CardFormProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'credit_card',
-          amount: total,
+          items: items.map(i => ({ id: i.id, quantity: i.quantity })),
+          storeId,
+          distanceKm,
+          customerName,
           email: customerEmail,
           cpf: customerCpf,
+          deliveryAddress,
+          cep,
           description: `Pedido — ${storeLabel}`,
           token: tokenResponse.id,
           paymentMethodId: brand || 'visa',
@@ -142,7 +157,7 @@ export const CardForm: React.FC<CardFormProps> = ({
       }
 
       if (data.status === 'approved') {
-        setApproved(data.paymentId, data.paymentId.toString());
+        setApproved(data.paymentId, data.orderId || data.paymentId.toString());
       } else {
         setRejected(data.statusDetail || 'Pagamento não aprovado.');
       }
@@ -183,7 +198,7 @@ export const CardForm: React.FC<CardFormProps> = ({
               placeholder="0000 0000 0000 0000"
               inputMode="numeric"
               required
-              autoComplete="off"
+              autoComplete="cc-number"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               {brand === 'visa' && <span className="text-lg">💳</span>}
@@ -221,7 +236,7 @@ export const CardForm: React.FC<CardFormProps> = ({
               inputMode="numeric"
               maxLength={5}
               required
-              autoComplete="off"
+              autoComplete="cc-exp"
             />
           </div>
           <div>
@@ -235,7 +250,7 @@ export const CardForm: React.FC<CardFormProps> = ({
               inputMode="numeric"
               maxLength={4}
               required
-              autoComplete="off"
+              autoComplete="cc-csc"
             />
           </div>
         </div>

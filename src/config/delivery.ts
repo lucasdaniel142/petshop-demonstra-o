@@ -13,12 +13,14 @@
 //   Acima de 15km = fora da área
 // ============================================================
 
+import type { StoreId } from '../types';
 import type { Coordinates } from '../utils/geolocation';
 
-/** Coordenadas do supermercado (centro da área de entrega) */
-export const STORE_COORDINATES: Coordinates = {
-  lat: parseFloat(import.meta.env.VITE_STORE_LAT || '-9.6498'),
-  lng: parseFloat(import.meta.env.VITE_STORE_LNG || '-35.7089'),
+/** Coordenadas geográficas exatas de cada sede */
+export const STORE_COORDINATES: Record<StoreId, Coordinates> = {
+  benedito_bentes: { lat: -9.548488550476605, lng: -35.72458132449029 },
+  salvador_lyra: { lat: -9.560838058928207, lng: -35.75117433618712 },
+  vergel_do_lago: { lat: -9.65473763672645, lng: -35.7622505067133 },
 };
 
 /** Taxa fixa para entregas dentro do raio base */

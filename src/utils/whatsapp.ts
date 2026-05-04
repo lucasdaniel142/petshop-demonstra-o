@@ -5,25 +5,10 @@
 
 import type { CartItem, StoreId } from '../types';
 import { BRAND } from '../config/brand';
+import { STORE_WHATSAPP_NUMBERS } from '../config/stores';
 
-// Lê e valida as variáveis de ambiente.
-const getWhatsAppNumber = (envKey: string, storeName: string): string => {
-  const value = import.meta.env[envKey] ?? '';
-  if (!value && import.meta.env.DEV) {
-    console.warn(
-      `[WhatsApp] Número da loja "${storeName}" não configurado.\n` +
-      `Adicione "${envKey}=5582XXXXXXXXX" ao arquivo .env.local e reinicie o servidor.`
-    );
-  }
-  return value;
-};
-
-// Mapeamento de lojas → números do WhatsApp
-export const STORE_WHATSAPP_NUMBERS: Record<StoreId, string> = {
-  benedito_bentes: getWhatsAppNumber('VITE_WHATSAPP_BENEDITO_BENTES', 'Benedito Bentes'),
-  // vergel: getWhatsAppNumber('VITE_WHATSAPP_VERGEL', 'Vergel'),
-  // salvador_lyra: getWhatsAppNumber('VITE_WHATSAPP_SALVADOR_LYRA', 'Salvador Lyra'),
-};
+// Re-export para backward compatibility (CartDrawer importa daqui)
+export { STORE_WHATSAPP_NUMBERS };
 
 /**
  * Gera a URL do WhatsApp com a mensagem do pedido formatada.
@@ -36,7 +21,8 @@ export function generateWhatsAppLink(
   paymentMethod: string,
   storeLabel: string,
   storePhone: string,
-  deliveryFee: number = 0
+  deliveryFee: number = 0,
+  paymentLocation: 'online' | 'delivery' = 'delivery'
 ): string | null {
   if (!storePhone) return null;
 
@@ -60,10 +46,16 @@ export function generateWhatsAppLink(
     message += `🚚 Taxa de entrega: R$ ${deliveryFee.toFixed(2).replace('.', ',')}\n`;
   }
 
+  const paymentText = paymentLocation === 'online' ? `${paymentMethod} (Online)` : `${paymentMethod} (Na Entrega)`;
+
   message += `💲 *TOTAL: R$ ${total.toFixed(2).replace('.', ',')}*\n\n`;
   message += `👤 Nome: ${customerName}\n`;
   message += `📍 Endereço: ${deliveryAddress}\n`;
-  message += `💳 Pagamento: ${paymentMethod}\n`;
+  message += `💳 Pagamento: ${paymentText}\n`;
+
+  if (paymentMethod === 'Pix' && paymentLocation === 'online') {
+    message += `\n📸 *Por favor, anexe o comprovante do Pix aqui nesta conversa.*\n`;
+  }
 
   const encoded = encodeURIComponent(message);
   return `https://wa.me/${storePhone}?text=${encoded}`;

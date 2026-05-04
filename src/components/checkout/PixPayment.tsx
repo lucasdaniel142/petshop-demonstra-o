@@ -16,7 +16,7 @@ const PIX_TIMEOUT_SECONDS = 15 * 60; // 15 minutos
 const POLL_INTERVAL_MS = 5_000; // 5 segundos
 
 export const PixPayment: React.FC = () => {
-  const { pixQrBase64, pixCode, mpPaymentId, setApproved, setError } =
+  const { pixQrBase64, pixCode, mpPaymentId, orderId, setApproved, setError } =
     usePaymentStore();
 
   const [copied, setCopied] = useState(false);
@@ -39,15 +39,15 @@ export const PixPayment: React.FC = () => {
 
   // Polling de status (fallback ao webhook)
   useEffect(() => {
-    if (!mpPaymentId) return;
+    if (!mpPaymentId || !orderId) return;
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/payment/${mpPaymentId}/status`);
+        const res = await fetch(`/api/payment/${mpPaymentId}/status?order=${encodeURIComponent(orderId)}`);
         const data = await res.json();
 
         if (data.status === 'approved') {
-          setApproved(mpPaymentId, mpPaymentId.toString());
+          setApproved(mpPaymentId, orderId);
           clearInterval(interval);
         }
       } catch {
@@ -56,7 +56,7 @@ export const PixPayment: React.FC = () => {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [mpPaymentId, setApproved]);
+  }, [mpPaymentId, orderId, setApproved]);
 
   // Copiar código Pix
   const handleCopy = useCallback(async () => {

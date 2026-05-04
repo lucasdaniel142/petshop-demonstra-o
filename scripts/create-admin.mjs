@@ -42,7 +42,7 @@ async function main() {
   const nome = await ask('📝 Nome do administrador: ');
   const email = await ask('📧 E-mail: ');
   const senha = await ask('🔑 Senha (mín. 8 caracteres): ');
-  const unidade = await ask('🏪 Unidade (ex: geral, benedito_bentes): ') || 'geral';
+  const unidade = await ask('🏪 Unidade (ex: geral, matriz): ') || 'geral';
 
   if (!nome.trim() || !email.trim() || senha.length < 8) {
     console.error('\n❌ Nome, email e senha (8+ chars) são obrigatórios.');

@@ -15,9 +15,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  // Impede o Vite de tentar processar pacotes Node.js server-side
+  optimizeDeps: {
+    exclude: ['mercadopago', 'firebase-admin'],
+  },
   server: {
     port: 3000,
-    host: '0.0.0.0',
+    host: true, // Era '0.0.0.0' — 'true' é equivalente mas resolve mais rápido
     hmr: process.env.DISABLE_HMR !== 'true',
   },
   build: {

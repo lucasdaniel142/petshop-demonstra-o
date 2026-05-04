@@ -3,7 +3,7 @@
 // Nenhum componente deve redefinir localmente tipos que já existem aqui.
 
 // --- IDs das lojas como tipo literal (evita strings mágicas) ---
-export type StoreId = 'benedito_bentes'; // | 'vergel' | 'salvador_lyra';
+export type StoreId = 'benedito_bentes' | 'salvador_lyra' | 'vergel_do_lago';
 
 // --- Preço por loja ---
 export interface StorePrice {

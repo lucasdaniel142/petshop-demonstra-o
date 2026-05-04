@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Check, Tag, X } from 'lucide-react';
+import { Search, Check, Tag, X, Bell } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, auth } from '../../lib/firebase';
 import { getPlaceholderImage } from '../../utils/placeholderImage';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 import { FeedbackBanner } from '../../components/ui/FeedbackBanner';
 import type { AdminProduct, SaveStatus, FeedbackState } from '../../types';
 import { DEFAULT_STORE_PRICE, type StorePrice } from '../../types';
-import { ADMIN_STORES } from '../../utils/constants';
+import { ADMIN_STORES, STORE_IDS } from '../../utils/constants';
 
 // TableSkeleton é local — específico desta tabela, sem valor de reutilização
 const TableSkeleton: React.FC = () => (
@@ -33,11 +33,12 @@ const TableSkeleton: React.FC = () => (
 
 export const PriceManager: React.FC = () => {
   const [products, setProducts] = useState<AdminProduct[]>([]);
-  const [selectedStore, setSelectedStore] = useState<string>('benedito_bentes');
+  const [selectedStore, setSelectedStore] = useState<string>(STORE_IDS[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [saveStatuses, setSaveStatuses] = useState<Record<string, SaveStatus>>({});
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isNotifying, setIsNotifying] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
   const timeoutRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -51,13 +52,12 @@ export const PriceManager: React.FC = () => {
             id: docSnap.id,
             nome: data.nome || data.name || 'Produto Sem Nome',
             categoria: data.categoria || data.category || 'Geral',
-            imageUrl: data.imageUrl || data.imagem || getPlaceholderImage(),
+            imageUrl: getPlaceholderImage(data.imageUrl || data.imagem),
             unit: data.unit || 'un',
-            precos: data.precos || {
-              benedito_bentes: DEFAULT_STORE_PRICE,
-              // vergel: DEFAULT_STORE_PRICE,
-              // salvador_lyra: DEFAULT_STORE_PRICE,
-            },
+            precos: data.precos || STORE_IDS.reduce((acc, id) => ({
+              ...acc,
+              [id]: DEFAULT_STORE_PRICE
+            }), {}),
           };
         });
         setProducts(loadedProducts);
@@ -111,6 +111,39 @@ export const PriceManager: React.FC = () => {
     }
   };
 
+  const handleNotifyOffers = async () => {
+    setIsNotifying(true);
+    setFeedback(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('Não autenticado');
+
+      const response = await fetch('/api/notify-offers', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: '🚨 Novas Ofertas Disponíveis!',
+          body: 'Corra para o app e confira os produtos com desconto especial hoje.'
+        }),
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setFeedback({ type: 'success', message: `Notificações enviadas com sucesso! (${data.sent} entregues, ${data.failed} falhas)` });
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Erro ao enviar notificações' });
+      }
+    } catch (err) {
+      console.error(err);
+      setFeedback({ type: 'error', message: 'Erro de conexão ao tentar enviar notificações.' });
+    } finally {
+      setIsNotifying(false);
+    }
+  };
+
   const filteredProducts = products.filter(
     (p) =>
       p.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -123,9 +156,19 @@ export const PriceManager: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white p-6 rounded-[12px] border border-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[20px] font-[800] text-primary">Gestão de Preços e Estoque</h1>
-          <p className="text-muted text-[13px] mt-1">Atualize valores, ofertas e disponibilidade por loja.</p>
+        <div className="flex flex-col gap-2">
+          <div>
+            <h1 className="text-[20px] font-[800] text-primary">Gestão de Preços e Estoque</h1>
+            <p className="text-muted text-[13px] mt-1">Atualize valores, ofertas e disponibilidade por loja.</p>
+          </div>
+          <button 
+            onClick={handleNotifyOffers}
+            disabled={isNotifying}
+            className="self-start mt-2 bg-primary text-white px-4 py-2 rounded-[8px] font-bold text-sm hover:bg-primary-dark transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            <Bell size={16} />
+            {isNotifying ? 'Enviando...' : 'Notificar Clientes sobre Ofertas'}
+          </button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
@@ -137,7 +180,7 @@ export const PriceManager: React.FC = () => {
             >
               {ADMIN_STORES.map((store) => (
                 <option key={store.id} value={store.id}>
-                  {store.name}
+                  {store.label}
                 </option>
               ))}
             </select>
@@ -178,8 +221,8 @@ export const PriceManager: React.FC = () => {
                 <>
                   {filteredProducts.map((product) => {
                     const storeData: StorePrice = isOverview
-                      ? product.precos.benedito_bentes
-                      : product.precos[selectedStore] ?? DEFAULT_STORE_PRICE;
+                      ? product.precos[STORE_IDS[0]] || DEFAULT_STORE_PRICE
+                      : product.precos[selectedStore as StoreId] ?? DEFAULT_STORE_PRICE;
 
                     const isOffer = storeData.emOferta;
                     const isEsgotado = storeData.esgotado;

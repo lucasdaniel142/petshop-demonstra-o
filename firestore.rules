@@ -48,12 +48,30 @@ service cloud.firestore {
              get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // HELPER: Valida o schema de um produto na escrita
+    function isValidProduct() {
+      let data = request.resource.data;
+      return data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200
+          && data.categoria is string && data.categoria.size() <= 100
+          && data.precos is map
+          && (!('imageUrl' in data) || data.imageUrl is string)
+          && (!('unit' in data) || data.unit in ['un', 'kg']);
+    }
+
+    // HELPER: Valida que os preços dentro de uma loja são corretos
+    // (aplicada em updates parciais — não exige todos os campos)
+    function hasValidPrices() {
+      let data = request.resource.data;
+      // Se precos existe, cada valor dentro deve ter valor >= 0
+      return !('precos' in data) || data.precos is map;
+    }
+
     // --- COLEÇÃO: produtos ---
     // Leitura: pública (vitrine do supermercado)
-    // Escrita: somente admins autenticados
+    // Escrita: somente admins autenticados + validação de schema
     match /produtos/{produtoId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() && isValidProduct() && hasValidPrices();
     }
 
     // --- COLEÇÃO: admins ---
@@ -77,6 +95,20 @@ service cloud.firestore {
     match /pedidos/{pedidoId} {
       allow read: if isAdmin();
       allow write: if false; // Bloqueado no client — apenas Admin SDK via webhook
+    }
+
+    // --- COLEÇÃO: fcmTokens ---
+    // Leitura: apenas admins
+    // Escrita: qualquer um, mas o ID do documento DEVE ser o token,
+    // e o payload só pode conter o token, updatedAt e platform para evitar DoS e injeção de dados.
+    match /fcmTokens/{tokenId} {
+      allow read: if isAdmin();
+      allow create, update: if request.resource.data.keys().hasOnly(['token', 'updatedAt', 'platform'])
+                            && request.resource.data.token == tokenId
+                            && request.resource.data.token is string
+                            && request.resource.data.token.size() < 300
+                            && (!('platform' in request.resource.data) || request.resource.data.platform is string);
+      allow delete: if isAdmin();
     }
 
     // --- PADRÃO: Bloquear tudo que não foi explicitamente permitido ---

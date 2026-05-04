@@ -2,24 +2,49 @@
 // ============================================================
 // Vercel Serverless Function — Cria pagamento no Mercado Pago.
 //
-// POST /api/payment
-//
 // SEGURANÇA:
 // - Rate limiting por IP (5 req/min)
 // - Validação rigorosa de todos os inputs
-// - Sanitização contra injection
-// - Amount validado server-side (min/max)
-// - Whitelist de métodos de pagamento
-// - Headers CORS restritivos
-// - Nenhum dado sensível nos logs/respostas
+// - Preços calculados SERVER-SIDE (Anti-Fraude de manipulação de preço)
+// - Taxa de entrega calculada SERVER-SIDE
+// - Criação do pedido no Firestore com status 'processing' ANTES do pagamento
 // - Idempotency key anti-duplicação
 // ============================================================
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { randomUUID } from 'crypto';
+import { encryptPII } from './utils/encryption';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+
+// ── Firebase Admin (server-side) ──
+if (getApps().length === 0) {
+  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      initializeApp({ credential: cert(serviceAccount) });
+    } catch {
+      console.error('[Payment] Erro ao parsear FIREBASE_SERVICE_ACCOUNT_KEY');
+      initializeApp({ projectId });
+    }
+  } else {
+    initializeApp({ projectId });
+  }
+}
+
+const adminDb = getFirestore();
 
 // ── Rate Limiting In-Memory (por IP) ──
+// ⚠️ LIMITAÇÃO CONHECIDA: Em serverless (Vercel), cada instância tem seu
+// próprio Map — o rate limit NÃO é compartilhado entre instâncias.
+// Para produção com tráfego significativo, migrar para:
+// - Upstash Redis (10k req/dia grátis): https://upstash.com
+// - @vercel/kv
+// - Vercel Firewall Rate Limiting (plano Pro)
+// Para V1 com volume baixo, o risco é aceitável.
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 5;       // max requests
 const RATE_LIMIT_WINDOW = 60_000; // por minuto
@@ -38,13 +63,25 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// ── Validação ──
+// ── Validação e Configs ──
 const ALLOWED_METHODS = ['pix', 'credit_card', 'debit_card'];
 const ALLOWED_PAYMENT_IDS = ['visa', 'master', 'elo', 'amex', 'hipercard', 'cabal', 'debvisa', 'debmaster'];
-const MIN_AMOUNT = 0.01;   // R$ 0,01
-const MAX_AMOUNT = 50_000;  // R$ 50.000
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const CPF_REGEX = /^\d{11}$/;
+
+const DELIVERY_BASE_FEE = parseFloat(process.env.VITE_DELIVERY_BASE_FEE || '5.00');
+const DELIVERY_BASE_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_BASE_RADIUS_KM || '3');
+const DELIVERY_PER_KM_FEE = parseFloat(process.env.VITE_DELIVERY_PER_KM_FEE || '1.50');
+const DELIVERY_MAX_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_MAX_RADIUS_KM || '15');
+
+function calculateServerDeliveryFee(distanceKm: number): number {
+  const roundedKm = Math.round(distanceKm * 10) / 10;
+  if (roundedKm > DELIVERY_MAX_RADIUS_KM) return -1; // Fora da área
+  if (roundedKm <= DELIVERY_BASE_RADIUS_KM) return DELIVERY_BASE_FEE;
+  
+  const extraKm = roundedKm - DELIVERY_BASE_RADIUS_KM;
+  const extraFee = Math.ceil(extraKm) * DELIVERY_PER_KM_FEE;
+  return Math.round((DELIVERY_BASE_FEE + extraFee) * 100) / 100;
+}
 
 function sanitizeString(input: unknown, maxLen: number = 200): string {
   if (typeof input !== 'string') return '';
@@ -81,7 +118,7 @@ const mpClient = new MercadoPagoConfig({ accessToken: accessToken || '' });
 const payment = new Payment(mpClient);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // ── CORS: Apenas POST, recusar qualquer outro método ──
+  // ── CORS ──
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Methods', 'POST');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -98,7 +135,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(429).json({ error: 'Muitas requisições. Aguarde 1 minuto.' });
   }
 
-  // ── Verificar se o token está configurado ──
   if (!accessToken) {
     return res.status(503).json({ error: 'Serviço de pagamento indisponível.' });
   }
@@ -106,100 +142,179 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const body = req.body;
 
-    // ── 1. Validar método de pagamento ──
+    // ── 1. Validações Iniciais ──
     const method = typeof body?.method === 'string' ? body.method : '';
     if (!ALLOWED_METHODS.includes(method)) {
       return res.status(400).json({ error: 'Método de pagamento inválido.' });
     }
 
-    // ── 2. Validar e sanitizar amount ──
-    const amount = Number(body?.amount);
-    if (!amount || isNaN(amount) || amount < MIN_AMOUNT || amount > MAX_AMOUNT) {
-      return res.status(400).json({ error: `Valor inválido. Mínimo: R$ ${MIN_AMOUNT}, Máximo: R$ ${MAX_AMOUNT}.` });
-    }
-    // Arredondar para 2 casas decimais (previne float manipulation)
-    const safeAmount = Math.round(amount * 100) / 100;
-
-    // ── 3. Validar email ──
     const email = sanitizeString(body?.email, 100);
     if (!email || !EMAIL_REGEX.test(email)) {
       return res.status(400).json({ error: 'E-mail inválido.' });
     }
 
-    // ── 4. Validar CPF (se fornecido) ──
     const rawCpf = typeof body?.cpf === 'string' ? body.cpf.replace(/\D/g, '') : '';
     if (rawCpf && !validateCPF(rawCpf)) {
       return res.status(400).json({ error: 'CPF inválido.' });
     }
 
-    // ── 5. Sanitizar description ──
-    const description = sanitizeString(body?.description, 200) || 'Pedido';
+    const storeId = sanitizeString(body?.storeId, 50);
+    if (!storeId) {
+      return res.status(400).json({ error: 'ID da loja não informado.' });
+    }
 
-    // ── Idempotency key ──
+    const description = sanitizeString(body?.description, 200) || 'Pedido Online';
+    const customerName = sanitizeString(body?.customerName, 100) || 'Cliente';
+    const deliveryAddress = sanitizeString(body?.deliveryAddress, 500) || '';
+    const cep = sanitizeString(body?.cep, 20) || '';
+    
+    const distanceKm = Number(body?.distanceKm) || 0;
+    const items = Array.isArray(body?.items) ? body.items : [];
+
+    if (items.length === 0) {
+      return res.status(400).json({ error: 'O carrinho está vazio.' });
+    }
+
+    // ── 2. Cálculo do Preço (Server-Side) ──
+    let subtotal = 0;
+    const verifiedItems = [];
+
+    // Busca os produtos no Firestore para garantir o preço real
+    for (const item of items) {
+      const qty = Number(item.quantity);
+      if (!qty || qty <= 0) continue;
+
+      const docSnap = await adminDb.collection('produtos').doc(item.id).get();
+      if (!docSnap.exists) {
+        return res.status(400).json({ error: `Produto ${item.id} não encontrado ou inativo.` });
+      }
+
+      const productData = docSnap.data();
+      const priceData = productData?.precos?.[storeId];
+
+      if (!priceData || priceData.esgotado) {
+        return res.status(400).json({ error: `O produto '${productData?.nome}' está esgotado ou indisponível nesta loja.` });
+      }
+
+      const price = Number(priceData.valor) || 0;
+      subtotal += price * qty;
+      
+      verifiedItems.push({
+        id: docSnap.id,
+        name: productData?.nome || 'Produto sem nome',
+        price: price,
+        quantity: qty,
+      });
+    }
+
+    // Calcular Frete
+    const deliveryFee = calculateServerDeliveryFee(distanceKm);
+    if (deliveryFee === -1) {
+      return res.status(400).json({ error: 'Endereço de entrega está fora da área permitida.' });
+    }
+
+    const totalAmount = Math.round((subtotal + deliveryFee) * 100) / 100;
+    
+    if (totalAmount < 0.01) {
+      return res.status(400).json({ error: 'Valor total inválido.' });
+    }
+
+    // ── Valor mínimo de pedido (protege modelo de negócio do cliente) ──
+    const MIN_ORDER_VALUE = parseFloat(process.env.VITE_MIN_ORDER_VALUE || '30');
+    if (subtotal < MIN_ORDER_VALUE) {
+      return res.status(400).json({
+        error: `Pedido mínimo é R$ ${MIN_ORDER_VALUE.toFixed(2).replace('.', ',')}.`
+      });
+    }
+
+    // ── 3. Criar Pedido no Firestore (Status: processing) ──
+    const orderRef = await adminDb.collection('pedidos').add({
+      items: verifiedItems,
+      subtotal,
+      deliveryFee,
+      total: totalAmount,
+      customerName: encryptPII(customerName),
+      customerEmail: encryptPII(email),
+      customerCpf: encryptPII(rawCpf),
+      deliveryAddress: encryptPII(deliveryAddress),
+      cep: encryptPII(cep),
+      isEncrypted: true,
+      storeId,
+      distanceKm,
+      paymentMethod: method,
+      paymentStatus: 'processing', // Será atualizado pelo webhook
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    const orderId = orderRef.id;
+    // ── 4. Criar Pagamento no MP ──
     const idempotencyKey = randomUUID();
-
     let paymentData: any;
 
-    if (method === 'pix') {
+    // Extração unificada de dados (suporta payload direto ou via Payment Brick)
+    const brickData = body?.formData;
+    const finalToken = brickData?.token || body?.token || '';
+    const finalPaymentMethodId = (brickData?.payment_method_id || body?.paymentMethodId || (method === 'pix' ? 'pix' : '')).toLowerCase();
+    const finalInstallments = Number(brickData?.installments || body?.installments || 1);
+
+    if (method === 'pix' || finalPaymentMethodId === 'pix') {
       paymentData = {
         body: {
-          transaction_amount: safeAmount,
-          description,
+          transaction_amount: totalAmount,
+          description: `${description} #${orderId.slice(0, 5)}`,
           payment_method_id: 'pix',
           payer: {
             email,
-            ...(rawCpf ? {
-              identification: { type: 'CPF', number: rawCpf },
-            } : {}),
+            ...(rawCpf ? { identification: { type: 'CPF', number: rawCpf } } : {}),
           },
           notification_url: `${getBaseUrl(req)}/api/webhook`,
+          external_reference: orderId,
         },
         requestOptions: { idempotencyKey },
       };
     } else {
-      // ── Cartão: validações extras ──
-      const token = typeof body?.token === 'string' ? body.token.trim() : '';
-      const paymentMethodId = typeof body?.paymentMethodId === 'string' ? body.paymentMethodId.trim().toLowerCase() : '';
-      const installments = Math.max(1, Math.min(12, Number(body?.installments) || 1));
-
-      if (!token || token.length < 10 || token.length > 100) {
-        return res.status(400).json({ error: 'Token de cartão inválido.' });
-      }
-
-      if (!ALLOWED_PAYMENT_IDS.includes(paymentMethodId)) {
-        return res.status(400).json({ error: 'Bandeira de cartão não suportada.' });
+      // ── Cartão ou outros métodos ──
+      if (!finalToken && method !== 'pix') {
+        return res.status(400).json({ error: 'Token de pagamento ausente.' });
       }
 
       paymentData = {
         body: {
-          transaction_amount: safeAmount,
-          token,
-          description,
-          installments,
-          payment_method_id: paymentMethodId,
+          transaction_amount: totalAmount,
+          token: finalToken,
+          description: `${description} #${orderId.slice(0, 5)}`,
+          installments: finalInstallments,
+          payment_method_id: finalPaymentMethodId,
           payer: {
             email,
-            ...(rawCpf ? {
-              identification: { type: 'CPF', number: rawCpf },
-            } : {}),
+            ...(rawCpf ? { identification: { type: 'CPF', number: rawCpf } } : {}),
           },
           notification_url: `${getBaseUrl(req)}/api/webhook`,
+          external_reference: orderId,
         },
         requestOptions: { idempotencyKey },
       };
     }
 
-    // ── Criar pagamento ──
+    // Criar Pagamento
     const result = await payment.create(paymentData);
 
-    // ── Resposta mínima (não vazar dados internos do MP) ──
+    // ── 5. Atualizar Pedido com o mpPaymentId ──
+    await orderRef.update({
+      mpPaymentId: result.id,
+      paymentStatus: result.status === 'approved' ? 'approved' : 'pending'
+    });
+
+    // ── Resposta mínima ──
     const response: Record<string, unknown> = {
+      orderId,
       paymentId: result.id,
       status: result.status,
       statusDetail: result.status_detail,
+      serverTotal: totalAmount
     };
 
-    if (method === 'pix' && result.point_of_interaction) {
+    if ((method === 'pix' || result.payment_method_id === 'pix') && result.point_of_interaction) {
       const txData = result.point_of_interaction.transaction_data;
       response.pixQrBase64 = txData?.qr_code_base64 || null;
       response.pixCode = txData?.qr_code || null;
@@ -209,10 +324,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(response);
 
   } catch (error: any) {
-    // SEGURANÇA: Não vazar detalhes internos do erro para o cliente
     const mpError = error?.cause?.[0]?.description;
     const safeMessage = mpError
-      ? mpError.replace(/[<>]/g, '') // sanitizar contra XSS refletido
+      ? mpError.replace(/[<>]/g, '')
       : 'Erro ao processar pagamento. Tente novamente.';
     
     return res.status(error?.status || 500).json({ error: safeMessage });
@@ -220,9 +334,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 function getBaseUrl(req: VercelRequest): string {
-  // SEGURANÇA: Usar apenas o host do deploy, não confiar em headers arbitrários
   const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-  // Sanitizar: apenas permitir domínios válidos
   const safeHost = String(host).replace(/[^a-zA-Z0-9.\-:]/g, '');
   return `https://${safeHost}`;
 }
+

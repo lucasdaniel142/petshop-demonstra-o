@@ -1,23 +1,23 @@
 {
-  "name": "Meu Supermercado",
-  "short_name": "Super",
-  "description": "Faça suas compras online e receba em casa!",
+  "name": "Supermercado Sagrada Família",
+  "short_name": "Sagrada Família",
+  "description": "Faça suas compras online no Supermercado Sagrada Família e receba em casa!",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#16a34a",
+  "theme_color": "#004b22",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/icon-192.svg",
+      "src": "/icons/icon sagrada familia.webp",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/webp",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.svg",
+      "src": "/icons/icon sagrada familia.webp",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/webp",
       "purpose": "any"
     }
   ]

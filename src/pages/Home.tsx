@@ -6,9 +6,10 @@ import { Header } from '../components/Header';
 import { CategoryNav } from '../components/CategoryNav';
 import { CartDrawer } from '../components/CartDrawer';
 import { ProductCard } from '../components/ProductCard';
+import { NotificationBanner } from '../components/NotificationBanner';
 import { useCart } from '../hooks/useCart';
 import type { FirestoreProduct, StoreId } from '../types';
-import { STORES, CATEGORY_OPTIONS, CATEGORY_KEYWORDS } from '../utils/constants';
+import { STORES, STORE_IDS, CATEGORY_OPTIONS, CATEGORY_KEYWORDS } from '../utils/constants';
 
 const ProductSkeleton: React.FC = () => (
   <div className="bg-white rounded-2xl shadow-sm p-6 lg:p-8 flex flex-col h-full animate-pulse border-0">
@@ -21,7 +22,7 @@ const ProductSkeleton: React.FC = () => (
 
 export const Home: React.FC = () => {
   const [products, setProducts] = useState<FirestoreProduct[]>([]);
-  const [selectedStore, setSelectedStore] = useState<StoreId>('benedito_bentes');
+  const [selectedStore, setSelectedStore] = useState<StoreId>(STORE_IDS[0]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,9 @@ export const Home: React.FC = () => {
 
       setProducts(loadedProducts);
     } catch (err) {
-      console.error('Erro ao carregar produtos:', err);
+      if (import.meta.env.DEV) {
+        console.error('Erro ao carregar produtos:', err);
+      }
       setError('Não foi possível carregar os produtos. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
@@ -166,7 +169,8 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen overflow-x-clip flex flex-col bg-gray-50 text-text font-sans antialiased">
+    <div className="min-h-screen w-screen overflow-x-clip flex flex-col bg-bg text-text font-sans antialiased">
+      <NotificationBanner />
       {/* ── Sticky Header: Logo + Busca + Carrinho + Categorias ── */}
       <div
         className={`sticky top-0 z-50 transition-shadow duration-300 ${
@@ -197,13 +201,13 @@ export const Home: React.FC = () => {
                 Produtos disponíveis no {storeLabel}
               </h1>
             </div>
-            <div className="rounded-2xl bg-gray-50/90 px-6 py-5 lg:px-8 lg:py-6 text-[14px] lg:text-[15px] text-text max-w-xs leading-relaxed shadow-sm">
+            <div className="rounded-2xl bg-bg/90 px-6 py-5 lg:px-8 lg:py-6 text-[14px] lg:text-[15px] text-text max-w-xs leading-relaxed shadow-sm">
               Escolha a loja e a categoria para ver os preços exatos.
             </div>
           </div>
         </div>
 
-        <section className="flex-1 bg-gray-50">
+        <section className="flex-1 bg-bg">
           <div className="px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
             <div className="max-w-7xl mx-auto">{renderContent()}</div>
           </div>

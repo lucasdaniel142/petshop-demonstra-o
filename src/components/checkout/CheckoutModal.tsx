@@ -1,18 +1,16 @@
 // src/components/checkout/CheckoutModal.tsx
 // ============================================================
-// Modal principal do checkout — orquestra o fluxo de pagamento.
-// Step 1: Escolher método (Pix ou Cartão)
-// Step 2: Formulário do método escolhido
-// Step 3: Status do pagamento
+// Modal principal do checkout — Orquestrado via Mercado Pago Bricks.
+// Utiliza Payment Brick para seleção/pagamento e Status Brick para pós-pagamento.
 // ============================================================
 
 import React from 'react';
-import { X, CreditCard, QrCode } from 'lucide-react';
+import { X } from 'lucide-react';
 import { usePaymentStore } from '../../store/usePaymentStore';
-import { CardForm } from './CardForm';
-import { PixPayment } from './PixPayment';
-import { PaymentStatusView } from './PaymentStatus';
-import type { PaymentMethodType } from '../../types';
+import { PaymentBrick } from './PaymentBrick';
+import { StatusScreenBrick } from './StatusScreenBrick';
+import { WalletBrick } from './WalletBrick';
+import type { CartItem } from '../../types';
 
 interface CheckoutModalProps {
   customerName: string;
@@ -22,10 +20,11 @@ interface CheckoutModalProps {
   cep: string;
   storeId: string;
   storeLabel: string;
+  distanceKm: number;
   subtotal: number;
   deliveryFee: number;
   total: number;
-  items: any[];
+  items: CartItem[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -38,6 +37,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   cep,
   storeId,
   storeLabel,
+  distanceKm,
   subtotal,
   deliveryFee,
   total,
@@ -45,27 +45,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { status, method, setMethod, isCheckoutOpen } = usePaymentStore();
+  const { status, mpPaymentId, isCheckoutOpen } = usePaymentStore();
 
   if (!isCheckoutOpen) return null;
-
-  const handleSelectMethod = (m: PaymentMethodType) => {
-    setMethod(m);
-  };
-
-  const commonProps = {
-    customerName,
-    customerEmail,
-    customerCpf,
-    deliveryAddress,
-    cep,
-    storeId,
-    storeLabel,
-    subtotal,
-    deliveryFee,
-    total,
-    items,
-  };
 
   return (
     <div
@@ -73,11 +55,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
-            <h2 className="text-lg font-extrabold text-gray-900">Pagamento Online</h2>
+            <h2 className="text-lg font-extrabold text-gray-900">Finalizar Pedido</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Total: <strong className="text-primary">R$ {total.toFixed(2).replace('.', ',')}</strong>
             </p>
@@ -92,137 +74,124 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Status final (aprovado/rejeitado/erro) */}
-          {(status === 'approved' || status === 'rejected' || status === 'error') && (
-            <PaymentStatusView onClose={onClose} onRetry={() => setMethod(method!)} onSuccess={onSuccess} />
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+          
+          {/* 1. Opções de Pagamento */}
+          {status === 'idle' && (
+            <div className="space-y-6">
+              {/* Wallet Brick (Express) */}
+              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <p className="text-[11px] font-bold text-blue-600 uppercase tracking-widest mb-3 text-center">
+                  Pagamento Rápido
+                </p>
+                <WalletBrick
+                  total={total}
+                  items={items}
+                  customerEmail={customerEmail}
+                  customerName={customerName}
+                  customerCpf={customerCpf}
+                  deliveryAddress={deliveryAddress}
+                  cep={cep}
+                  storeId={storeId}
+                  distanceKm={distanceKm}
+                  subtotal={subtotal}
+                  deliveryFee={deliveryFee}
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-3 text-gray-400 font-medium">Ou pague com Pix ou Cartão</span>
+                </div>
+              </div>
+
+              {/* Payment Brick (Multi-method) */}
+              <PaymentBrick
+                total={total}
+                items={items}
+                customerEmail={customerEmail}
+                customerCpf={customerCpf}
+                customerName={customerName}
+                storeId={storeId}
+                distanceKm={distanceKm}
+                onSuccess={onSuccess}
+              />
+            </div>
           )}
 
-          {/* Pix pendente — mostra QR Code */}
-          {status === 'pending' && method === 'pix' && (
-            <PixPayment />
-          )}
-
-          {/* Processando */}
+          {/* 2. Processando */}
           {status === 'processing' && (
             <div className="flex flex-col items-center gap-4 py-12">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
               <p className="text-sm font-semibold text-gray-600">Processando pagamento...</p>
-              <p className="text-xs text-gray-400">Não feche esta janela</p>
+              <p className="text-xs text-gray-400 text-center">
+                Aguarde alguns segundos. Estamos validando sua transação com segurança.
+              </p>
             </div>
           )}
 
-          {/* Escolha do método */}
-          {status === 'idle' && !method && (
-            <div className="space-y-3">
-              <p className="text-sm text-gray-600 mb-4">Escolha a forma de pagamento:</p>
-
-              <button
-                onClick={() => handleSelectMethod('pix')}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-200 hover:border-primary hover:bg-primary/5 transition-all group"
-              >
-                <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center group-hover:bg-teal-100 transition-colors">
-                  <QrCode size={24} className="text-teal-600" />
-                </div>
-                <div className="text-left">
-                  <span className="font-bold text-gray-900">Pix</span>
-                  <p className="text-xs text-gray-500">Pagamento instantâneo via QR Code</p>
-                </div>
-                <span className="ml-auto text-xs font-semibold text-teal-600 bg-teal-50 px-2 py-1 rounded-full">
-                  Aprovação imediata
-                </span>
-              </button>
-
-              <button
-                onClick={() => handleSelectMethod('credit_card')}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-200 hover:border-primary hover:bg-primary/5 transition-all group"
-              >
-                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                  <CreditCard size={24} className="text-blue-600" />
-                </div>
-                <div className="text-left">
-                  <span className="font-bold text-gray-900">Cartão de Crédito</span>
-                  <p className="text-xs text-gray-500">Visa, Mastercard, Elo, Amex</p>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* Formulário do cartão */}
-          {(status === 'idle' && method === 'credit_card') && (
-            <CardForm {...commonProps} />
-          )}
-
-          {/* Formulário Pix (direto, sem campos extras) */}
-          {(status === 'idle' && method === 'pix') && (
+          {/* 3. Status Final ou Pix Pendente (Brick) */}
+          {(status === 'approved' || status === 'rejected' || status === 'pending') && mpPaymentId && (
             <div className="space-y-4">
-              <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
-                <p className="text-sm text-teal-800">
-                  <strong>Pix</strong> — Ao confirmar, um QR Code será gerado para você escanear com o app do seu banco.
+              <StatusScreenBrick
+                paymentId={mpPaymentId}
+                onSuccess={onSuccess}
+              />
+              
+              {/* Botão de conclusão para quando estiver aprovado */}
+              {status === 'approved' && (
+                <div className="px-4 pb-4">
+                  <button
+                    onClick={onSuccess}
+                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-extrabold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 animate-bounce"
+                  >
+                    🚀 FINALIZAR E IR PARA WHATSAPP
+                  </button>
+                  <p className="text-[10px] text-gray-400 text-center mt-2 uppercase tracking-tighter">
+                    Clique acima para enviar o comprovante e os detalhes do pedido
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 4. Erro Genérico */}
+          {status === 'error' && (
+            <div className="flex flex-col items-center gap-4 py-12 text-center">
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
+                <X size={32} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Algo deu errado</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Não conseguimos processar o carregamento do checkout. 
+                  Tente atualizar a página ou entre em contato.
                 </p>
               </div>
-
-              {/* Resumo do pedido */}
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
-                </div>
-                {deliveryFee > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>Taxa de entrega</span>
-                    <span>R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
-                  </div>
-                )}
-                <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900">
-                  <span>Total</span>
-                  <span>R$ {total.toFixed(2).replace('.', ',')}</span>
-                </div>
-              </div>
-
               <button
-                onClick={async () => {
-                  const { setProcessing, setPixPending, setError } = usePaymentStore.getState();
-                  setProcessing();
-
-                  try {
-                    const res = await fetch('/api/payment', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        method: 'pix',
-                        amount: total,
-                        email: customerEmail,
-                        cpf: customerCpf,
-                        description: `Pedido — ${storeLabel}`,
-                      }),
-                    });
-
-                    const data = await res.json();
-
-                    if (!res.ok) {
-                      setError(data.error || 'Erro ao gerar Pix');
-                      return;
-                    }
-
-                    setPixPending({
-                      mpPaymentId: data.paymentId,
-                      orderId: data.paymentId.toString(),
-                      pixQrBase64: data.pixQrBase64,
-                      pixCode: data.pixCode,
-                      pixExpiration: data.pixExpiration,
-                    });
-                  } catch {
-                    setError('Erro de conexão. Tente novamente.');
-                  }
-                }}
-                className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors"
               >
-                <QrCode size={20} />
-                Gerar QR Code Pix
+                Fechar
               </button>
             </div>
           )}
+        </div>
+
+        {/* Footer Informativo */}
+        <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-center gap-4">
+          <div className="flex items-center gap-1.5 opacity-50 grayscale">
+             {/* Simulação de logos de pagamento */}
+             <img src="https://img.icons8.com/color/48/000000/visa.png" className="h-6" alt="Visa" />
+             <img src="https://img.icons8.com/color/48/000000/mastercard.png" className="h-6" alt="Mastercard" />
+             <img src="https://img.icons8.com/color/48/000000/pix.png" className="h-6" alt="Pix" />
+          </div>
+          <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+            Pagamento 100% Seguro via Mercado Pago
+          </span>
         </div>
       </div>
     </div>

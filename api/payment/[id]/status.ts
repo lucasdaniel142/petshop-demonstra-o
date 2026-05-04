@@ -1,17 +1,39 @@
 // api/payment/[id]/status.ts
 // ============================================================
 // Vercel Serverless Function — Consulta status de pagamento.
-// GET /api/payment/{id}/status
+// GET /api/payment/{id}/status?order=ORDERID
 //
 // SEGURANÇA:
 // - Rate limiting (10 req/min por IP)
 // - Validação de ID (numérico positivo, max 15 dígitos)
+// - Segundo fator: orderId obrigatório (anti-enumeração)
 // - Resposta mínima (só status, sem dados sensíveis)
 // - Nenhum erro interno vazado
 // ============================================================
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+// ── Firebase Admin (server-side) ──
+if (getApps().length === 0) {
+  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      initializeApp({ credential: cert(serviceAccount) });
+    } catch {
+      console.error('[Status] Erro ao parsear FIREBASE_SERVICE_ACCOUNT_KEY');
+      initializeApp({ projectId });
+    }
+  } else {
+    initializeApp({ projectId });
+  }
+}
+
+const adminDb = getFirestore();
 
 const accessToken = process.env.MP_ACCESS_TOKEN || '';
 const mpClient = new MercadoPagoConfig({ accessToken });
@@ -52,6 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const paymentId = Number(rawId);
+
+    // SEGURANÇA: Segundo fator — orderId obrigatório (anti-enumeração)
+    const orderId = typeof req.query.order === 'string' ? req.query.order.trim() : '';
+    if (!orderId || orderId.length < 5 || orderId.length > 40) {
+      return res.status(400).json({ error: 'Parâmetro inválido' });
+    }
+
+    // Verificar que o par (mpPaymentId, orderId) existe no Firestore
+    const orderDoc = await adminDb.collection('pedidos').doc(orderId).get();
+    if (!orderDoc.exists || orderDoc.data()?.mpPaymentId !== paymentId) {
+      // Retornar 404 genérico — não revelar se o orderId existe
+      return res.status(404).json({ error: 'Não encontrado' });
+    }
 
     if (!accessToken) {
       return res.status(503).json({ error: 'Serviço indisponível' });
