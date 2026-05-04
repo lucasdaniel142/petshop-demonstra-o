@@ -5,7 +5,7 @@
 // mostra a última versão carregada.
 // ============================================================
 
-const CACHE_NAME = 'ecommerce-v1';
+const CACHE_NAME = 'ecommerce-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -31,12 +31,14 @@ self.addEventListener('activate', (event) => {
 
 // Intercepta requests: tenta rede primeiro, fallback para cache
 self.addEventListener('fetch', (event) => {
-  // Não cachear requests de API (Firebase, ViaCEP, etc.)
+  // Não cachear requests de API ou SDKs sensíveis
   if (
     event.request.url.includes('firestore.googleapis.com') ||
     event.request.url.includes('viacep.com.br') ||
     event.request.url.includes('nominatim.openstreetmap.org') ||
     event.request.url.includes('api.imgbb.com') ||
+    event.request.url.includes('sdk.mercadopago.com') ||
+    event.request.url.includes('img.icons8.com') ||
     event.request.method !== 'GET'
   ) {
     return;
