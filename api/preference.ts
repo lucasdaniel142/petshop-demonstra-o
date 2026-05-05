@@ -14,7 +14,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { encryptPII } from './utils/encryption';
+import { encryptPII } from './utils/encryption.js';
 
 // ── Firebase Admin ──
 if (getApps().length === 0) {
