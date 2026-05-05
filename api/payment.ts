@@ -143,17 +143,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = req.body;
 
     // ── 1. Validações Iniciais ──
-    const method = typeof body?.method === 'string' ? body.method : '';
-    if (!ALLOWED_METHODS.includes(method)) {
-      return res.status(400).json({ error: 'Método de pagamento inválido.' });
+    // O Payment Brick envia payment_method_id diretamente (ex: 'pix', 'visa', 'master')
+    // Detectar método a partir do Brick ou do campo 'method' manual
+    const brickPaymentMethodId = (body?.payment_method_id || '').toLowerCase();
+    const CARD_IDS = ['visa', 'master', 'elo', 'amex', 'hipercard', 'cabal'];
+    const DEBIT_IDS = ['debvisa', 'debmaster', 'debelo'];
+    
+    let method: string;
+    if (body?.method && ALLOWED_METHODS.includes(body.method)) {
+      method = body.method;
+    } else if (brickPaymentMethodId === 'pix') {
+      method = 'pix';
+    } else if (DEBIT_IDS.includes(brickPaymentMethodId)) {
+      method = 'debit_card';
+    } else if (CARD_IDS.includes(brickPaymentMethodId) || body?.token) {
+      method = 'credit_card';
+    } else {
+      method = brickPaymentMethodId || 'pix'; // fallback
     }
 
-    const email = sanitizeString(body?.email, 100);
+    // Email: pode vir de body.email OU do Brick em body.payer.email
+    const rawEmail = body?.email || body?.payer?.email || '';
+    const email = sanitizeString(rawEmail, 100);
     if (!email || !EMAIL_REGEX.test(email)) {
       return res.status(400).json({ error: 'E-mail inválido.' });
     }
 
-    const rawCpf = typeof body?.cpf === 'string' ? body.cpf.replace(/\D/g, '') : '';
+    // CPF: pode vir de body.cpf OU do Brick em body.payer.identification.number
+    const rawCpfInput = body?.cpf || body?.payer?.identification?.number || '';
+    const rawCpf = typeof rawCpfInput === 'string' ? rawCpfInput.replace(/\D/g, '') : '';
     if (rawCpf && !validateCPF(rawCpf)) {
       return res.status(400).json({ error: 'CPF inválido.' });
     }
@@ -251,11 +269,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const idempotencyKey = randomUUID();
     let paymentData: any;
 
-    // Extração unificada de dados (suporta payload direto ou via Payment Brick)
-    const brickData = body?.formData;
-    const finalToken = brickData?.token || body?.token || '';
-    const finalPaymentMethodId = (brickData?.payment_method_id || body?.paymentMethodId || (method === 'pix' ? 'pix' : '')).toLowerCase();
-    const finalInstallments = Number(brickData?.installments || body?.installments || 1);
+    // Extração unificada de dados (suporta Payment Brick e payload manual)
+    // O Payment Brick faz ...formData que espalha os campos diretamente no body
+    const finalToken = body?.token || '';
+    const finalPaymentMethodId = (body?.payment_method_id || brickPaymentMethodId || (method === 'pix' ? 'pix' : '')).toLowerCase();
+    const finalInstallments = Number(body?.installments || 1);
+    const finalIssuerId = body?.issuer_id || '';
 
     if (method === 'pix' || finalPaymentMethodId === 'pix') {
       paymentData = {
@@ -285,6 +304,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           description: `${description} #${orderId.slice(0, 5)}`,
           installments: finalInstallments,
           payment_method_id: finalPaymentMethodId,
+          ...(finalIssuerId ? { issuer_id: finalIssuerId } : {}),
           payer: {
             email,
             ...(rawCpf ? { identification: { type: 'CPF', number: rawCpf } } : {}),
