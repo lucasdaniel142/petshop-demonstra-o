@@ -184,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const orderId = orderRef.id;
 
     // 2. Criar preferência com preços verificados
-    const body = {
+    const preferenceBody = {
       items: verifiedItems.map((item) => ({
         id: item.id,
         title: item.name,
@@ -212,7 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       notification_url: `${getBaseUrl(req)}/api/webhook`,
     };
 
-    const response = await preference.create({ body });
+    const response = await preference.create({ body: preferenceBody });
 
     // 3. Atualizar o pedido com o Preference ID
     await orderRef.update({ mpPreferenceId: response.id });

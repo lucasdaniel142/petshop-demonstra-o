@@ -151,20 +151,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[payment] items:', JSON.stringify(body?.items?.slice(0, 2)));
 
     // ── 1. Validações Iniciais ──
-    // O Payment Brick envia payment_method_id diretamente (ex: 'pix', 'visa', 'master')
-    // Detectar método a partir do Brick ou do campo 'method' manual
-    const brickPaymentMethodId = (body?.payment_method_id || '').toLowerCase();
+    // O Payment Brick envia dados dentro de body.formData (objeto aninhado)
+    const brickData = body?.formData || {};
+    const brickPaymentMethodId = (brickData?.payment_method_id || body?.payment_method_id || '').toLowerCase();
+    const selectedMethod = body?.selectedPaymentMethod || body?.paymentType || '';
     const CARD_IDS = ['visa', 'master', 'elo', 'amex', 'hipercard', 'cabal'];
     const DEBIT_IDS = ['debvisa', 'debmaster', 'debelo'];
     
     let method: string;
     if (body?.method && ALLOWED_METHODS.includes(body.method)) {
       method = body.method;
-    } else if (brickPaymentMethodId === 'pix') {
+    } else if (brickPaymentMethodId === 'pix' || selectedMethod === 'bank_transfer') {
       method = 'pix';
-    } else if (DEBIT_IDS.includes(brickPaymentMethodId)) {
+    } else if (DEBIT_IDS.includes(brickPaymentMethodId) || selectedMethod === 'debit_card') {
       method = 'debit_card';
-    } else if (CARD_IDS.includes(brickPaymentMethodId) || body?.token) {
+    } else if (CARD_IDS.includes(brickPaymentMethodId) || brickData?.token || selectedMethod === 'credit_card') {
       method = 'credit_card';
     } else {
       method = brickPaymentMethodId || 'pix'; // fallback
@@ -278,11 +279,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let paymentData: any;
 
     // Extração unificada de dados (suporta Payment Brick e payload manual)
-    // O Payment Brick faz ...formData que espalha os campos diretamente no body
-    const finalToken = body?.token || '';
-    const finalPaymentMethodId = (body?.payment_method_id || brickPaymentMethodId || (method === 'pix' ? 'pix' : '')).toLowerCase();
-    const finalInstallments = Number(body?.installments || 1);
-    const finalIssuerId = body?.issuer_id || '';
+    // O Payment Brick envia dados dentro de body.formData (objeto aninhado)
+    const finalToken = brickData?.token || body?.token || '';
+    const finalPaymentMethodId = (brickData?.payment_method_id || body?.payment_method_id || brickPaymentMethodId || (method === 'pix' ? 'pix' : '')).toLowerCase();
+    const finalInstallments = Number(brickData?.installments || body?.installments || 1);
+    const finalIssuerId = brickData?.issuer_id || body?.issuer_id || '';
 
     if (method === 'pix' || finalPaymentMethodId === 'pix') {
       paymentData = {
