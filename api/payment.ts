@@ -361,16 +361,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(response);
 
   } catch (error: any) {
-    console.error('[payment] Error in processing:', error);
+    console.error('[payment] Error in processing:', error.message);
     if (error.cause) console.error('[payment] Cause:', JSON.stringify(error.cause, null, 2));
-    if (error.response) console.error('[payment] MP Response:', error.response);
+    if (error.api_response) console.error('[payment] API Response:', JSON.stringify(error.api_response, null, 2));
 
-    const mpError = error?.cause?.[0]?.description || error?.message;
+    const statusCode = error?.api_response?.status || error?.status || 500;
+    
+    // Extrai a mensagem de erro da resposta da API do MP, se existir
+    let mpError = error?.message;
+    if (error?.api_response?.data?.message) {
+      mpError = error.api_response.data.message;
+    } else if (error?.cause?.length > 0) {
+      mpError = error.cause[0].description;
+    }
+
     const safeMessage = mpError
       ? String(mpError).replace(/[<>]/g, '')
       : 'Erro ao processar pagamento. Tente novamente.';
     
-    return res.status(error?.status || 500).json({ error: safeMessage });
+    return res.status(statusCode).json({ error: safeMessage });
   }
 }
 
