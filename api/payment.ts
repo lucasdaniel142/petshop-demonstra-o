@@ -247,8 +247,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── Valor mínimo de pedido (protege modelo de negócio do cliente) ──
-    const MIN_ORDER_VALUE = parseFloat(process.env.VITE_MIN_ORDER_VALUE || '30');
+    const MIN_ORDER_VALUE = parseFloat(process.env.VITE_MIN_ORDER_VALUE || '0');
     if (subtotal < MIN_ORDER_VALUE) {
+      console.log(`[payment] REJECTED: MIN_ORDER_VALUE. Subtotal: ${subtotal}, Min: ${MIN_ORDER_VALUE}`);
       return res.status(400).json({
         error: `Pedido mínimo é R$ ${MIN_ORDER_VALUE.toFixed(2).replace('.', ',')}.`
       });

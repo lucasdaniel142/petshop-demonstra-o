@@ -66,7 +66,6 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
                 bankTransfer: 'all',
                 creditCard: 'all',
                 debitCard: 'all',
-                mercadoPago: 'all',
               },
               visual: {
                 style: {
