@@ -286,6 +286,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const finalInstallments = Number(brickData?.installments || body?.installments || 1);
     const finalIssuerId = brickData?.issuer_id || body?.issuer_id || '';
 
+    const firstName = customerName.split(' ')[0] || 'Cliente';
+    const lastName = customerName.split(' ').slice(1).join(' ') || 'Sobrenome';
+
     if (method === 'pix' || finalPaymentMethodId === 'pix') {
       paymentData = {
         body: {
@@ -294,6 +297,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           payment_method_id: 'pix',
           payer: {
             email,
+            first_name: firstName,
+            last_name: lastName,
             ...(rawCpf ? { identification: { type: 'CPF', number: rawCpf } } : {}),
           },
           notification_url: `${getBaseUrl(req)}/api/webhook`,
@@ -317,6 +322,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ...(finalIssuerId ? { issuer_id: finalIssuerId } : {}),
           payer: {
             email,
+            first_name: firstName,
+            last_name: lastName,
             ...(rawCpf ? { identification: { type: 'CPF', number: rawCpf } } : {}),
           },
           notification_url: `${getBaseUrl(req)}/api/webhook`,
@@ -354,9 +361,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(response);
 
   } catch (error: any) {
-    const mpError = error?.cause?.[0]?.description;
+    console.error('[payment] Error in processing:', error);
+    if (error.cause) console.error('[payment] Cause:', JSON.stringify(error.cause, null, 2));
+    if (error.response) console.error('[payment] MP Response:', error.response);
+
+    const mpError = error?.cause?.[0]?.description || error?.message;
     const safeMessage = mpError
-      ? mpError.replace(/[<>]/g, '')
+      ? String(mpError).replace(/[<>]/g, '')
       : 'Erro ao processar pagamento. Tente novamente.';
     
     return res.status(error?.status || 500).json({ error: safeMessage });

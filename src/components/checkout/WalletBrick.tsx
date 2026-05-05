@@ -100,7 +100,6 @@ export const WalletBrick: React.FC<WalletBrickProps> = ({
           },
           customization: {
             visual: {
-              buttonBackground: 'default',
               borderRadius: '12px',
             },
           },
