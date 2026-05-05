@@ -70,11 +70,7 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
               },
               visual: {
                 style: {
-                  theme: 'default', // 'default' | 'dark' | 'bootstrap' | 'flat'
-                  customVariables: {
-                    colorPrimary: '#1e293b', // Match our slate-800
-                    borderRadius: '12px',
-                  }
+                  theme: 'default',
                 },
               },
             },

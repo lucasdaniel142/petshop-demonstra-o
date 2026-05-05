@@ -51,10 +51,6 @@ export const StatusScreenBrick: React.FC<StatusScreenBrickProps> = ({
               visual: {
                 style: {
                   theme: 'default',
-                  customVariables: {
-                    colorPrimary: '#1e293b',
-                    borderRadius: '12px',
-                  }
                 },
               },
               backUrls: {
