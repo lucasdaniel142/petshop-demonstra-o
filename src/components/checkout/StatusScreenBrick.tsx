@@ -21,7 +21,7 @@ export const StatusScreenBrick: React.FC<StatusScreenBrickProps> = ({
     const initBrick = async () => {
       try {
         const { loadMercadoPago } = await import('@mercadopago/sdk-js');
-        const mp = await loadMercadoPago();
+        await loadMercadoPago();
         
         const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
         if (!publicKey) {
@@ -29,8 +29,8 @@ export const StatusScreenBrick: React.FC<StatusScreenBrickProps> = ({
           return;
         }
 
-        // @ts-ignore
-        const mpInstance = new mp.MercadoPago(publicKey, { locale: 'pt-BR' });
+        // @ts-ignore — SDK é carregado em window.MercadoPago
+        const mpInstance = new window.MercadoPago(publicKey, { locale: 'pt-BR' });
         const bricksBuilder = mpInstance.bricks();
 
         const renderStatusScreenBrick = async (builder: any) => {
@@ -40,10 +40,10 @@ export const StatusScreenBrick: React.FC<StatusScreenBrickProps> = ({
             },
             callbacks: {
               onReady: () => {
-                console.log('Status Screen Brick ready');
+                if (import.meta.env.DEV) console.log('Status Screen Brick ready');
               },
               onError: (error: any) => {
-                console.error('Status Screen Brick Error:', error);
+                if (import.meta.env.DEV) console.error('Status Screen Brick Error:', error);
                 setError('Erro ao carregar o status do pagamento.');
               },
             },
@@ -70,7 +70,7 @@ export const StatusScreenBrick: React.FC<StatusScreenBrickProps> = ({
 
         await renderStatusScreenBrick(bricksBuilder);
       } catch (err) {
-        console.error('Failed to load MP SDK:', err);
+        if (import.meta.env.DEV) console.error('Failed to load MP SDK:', err);
         setError('Erro ao inicializar o status do pagamento.');
       }
     };

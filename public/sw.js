@@ -34,6 +34,8 @@ self.addEventListener('fetch', (event) => {
   // Não cachear requests de API ou SDKs sensíveis
   if (
     event.request.url.includes('firestore.googleapis.com') ||
+    event.request.url.includes('firebasestorage.googleapis.com') ||
+    event.request.url.includes('.firebasestorage.app') ||
     event.request.url.includes('viacep.com.br') ||
     event.request.url.includes('nominatim.openstreetmap.org') ||
     event.request.url.includes('api.imgbb.com') ||

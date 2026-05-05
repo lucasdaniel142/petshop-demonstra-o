@@ -10,3 +10,5 @@ coverage/
 # Firebase credentials (NEVER commit)
 serviceAccountKey.json
 *-firebase-adminsdk-*.json
+
+.vercel

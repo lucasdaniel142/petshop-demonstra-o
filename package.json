@@ -12,17 +12,16 @@
   },
   "dependencies": {
     "@mercadopago/sdk-js": "^0.0.3",
-    "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "firebase": "^12.12.1",
     "lucide-react": "^0.546.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.14.1",
-    "vite": "^6.2.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

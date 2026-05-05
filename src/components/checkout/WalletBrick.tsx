@@ -1,6 +1,10 @@
 // src/components/checkout/WalletBrick.tsx
+// ============================================================
+// Wallet Brick — Pagamento rápido via conta Mercado Pago.
+// Erros são tratados LOCALMENTE para não bloquear o Payment Brick.
+// ============================================================
+
 import React, { useEffect, useRef, useState } from 'react';
-import { usePaymentStore } from '../../store/usePaymentStore';
 
 interface WalletBrickProps {
   total: number;
@@ -32,7 +36,8 @@ export const WalletBrick: React.FC<WalletBrickProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const brickControllerRef = useRef<any>(null);
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
-  const { setError } = usePaymentStore();
+  // FIX: Erro local — não afeta o estado global do checkout
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPreference = async () => {
@@ -54,14 +59,21 @@ export const WalletBrick: React.FC<WalletBrickProps> = ({
             deliveryFee,
           }),
         });
+
+        if (!res.ok) {
+          setLocalError('Pagamento rápido indisponível.');
+          return;
+        }
+
         const data = await res.json();
         if (data.id) {
           setPreferenceId(data.id);
         } else {
-          setError('Erro ao gerar link de pagamento Mercado Pago.');
+          setLocalError('Pagamento rápido indisponível.');
         }
       } catch {
-        setError('Erro de conexão ao gerar pagamento.');
+        // FIX: Em localhost, /api/preference não existe — erro local, não bloqueia checkout
+        setLocalError('Pagamento rápido indisponível no momento.');
       }
     };
 
@@ -76,10 +88,10 @@ export const WalletBrick: React.FC<WalletBrickProps> = ({
     const initBrick = async () => {
       try {
         const { loadMercadoPago } = await import('@mercadopago/sdk-js');
-        const mp = await loadMercadoPago();
+        await loadMercadoPago();
         
-        // @ts-ignore
-        const mpInstance = new mp.MercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY, { locale: 'pt-BR' });
+        // @ts-ignore — SDK é carregado em window.MercadoPago
+        const mpInstance = new window.MercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY, { locale: 'pt-BR' });
         const bricksBuilder = mpInstance.bricks();
 
         const settings = {
@@ -88,16 +100,16 @@ export const WalletBrick: React.FC<WalletBrickProps> = ({
           },
           customization: {
             visual: {
-              buttonBackground: 'default', // 'default' | 'black' | 'blue' | 'white'
+              buttonBackground: 'default',
               borderRadius: '12px',
             },
           },
           callbacks: {
             onReady: () => {
-              console.log('Wallet Brick ready');
+              if (import.meta.env.DEV) console.log('Wallet Brick ready');
             },
             onError: (error: any) => {
-              console.error('Wallet Brick Error:', error);
+              if (import.meta.env.DEV) console.error('Wallet Brick Error:', error);
             },
           },
         };
@@ -106,7 +118,8 @@ export const WalletBrick: React.FC<WalletBrickProps> = ({
           brickControllerRef.current = await bricksBuilder.create('wallet', 'wallet-brick-container', settings);
         }
       } catch (err) {
-        console.error('Failed to load MP SDK:', err);
+        if (import.meta.env.DEV) console.error('Failed to load MP SDK:', err);
+        setLocalError('Pagamento rápido indisponível.');
       }
     };
 
@@ -119,6 +132,15 @@ export const WalletBrick: React.FC<WalletBrickProps> = ({
       }
     };
   }, [preferenceId]);
+
+  // Se falhou, mostra mensagem discreta (não bloqueia o resto do checkout)
+  if (localError) {
+    return (
+      <div className="text-center py-3 text-xs text-gray-400 italic">
+        {localError}
+      </div>
+    );
+  }
 
   return (
     <div id="wallet-brick-container" ref={containerRef}>
