@@ -87,13 +87,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { items, storeId, customerName, customerEmail, customerCpf, deliveryAddress, cep, distanceKm } = req.body;
+    const body = req.body || {};
+    
+    // Debug: log what we receive
+    console.log('[preference] Body keys:', Object.keys(body));
+    console.log('[preference] items type:', typeof body.items, 'isArray:', Array.isArray(body.items), 'length:', body.items?.length);
+    console.log('[preference] storeId:', body.storeId);
+    console.log('[preference] customerEmail:', body.customerEmail, 'email:', body.email);
+    
+    const items = body.items;
+    const storeId = body.storeId;
+    const customerName = body.customerName || 'Cliente';
+    const customerEmail = body.customerEmail || body.email || '';
+    const customerCpf = body.customerCpf || body.cpf || '';
+    const deliveryAddress = body.deliveryAddress || '';
+    const cep = body.cep || '';
+    const distanceKm = body.distanceKm || 0;
 
     // Validações
     if (!Array.isArray(items) || items.length === 0) {
+      console.log('[preference] REJECTED: items empty/invalid');
       return res.status(400).json({ error: 'Carrinho vazio.' });
     }
     if (!storeId) {
+      console.log('[preference] REJECTED: storeId missing');
       return res.status(400).json({ error: 'ID da loja não informado.' });
     }
 

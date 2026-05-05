@@ -142,6 +142,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const body = req.body;
 
+    // Debug: log what we receive from the Brick
+    console.log('[payment] Body keys:', Object.keys(body || {}));
+    console.log('[payment] payment_method_id:', body?.payment_method_id);
+    console.log('[payment] method:', body?.method);
+    console.log('[payment] email:', body?.email, 'payer.email:', body?.payer?.email);
+    console.log('[payment] storeId:', body?.storeId);
+    console.log('[payment] items:', JSON.stringify(body?.items?.slice(0, 2)));
+
     // ── 1. Validações Iniciais ──
     // O Payment Brick envia payment_method_id diretamente (ex: 'pix', 'visa', 'master')
     // Detectar método a partir do Brick ou do campo 'method' manual
