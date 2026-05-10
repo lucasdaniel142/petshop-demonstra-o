@@ -52,12 +52,13 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
               amount: total,
               payer: {
                 email: customerEmail,
+                firstName: customerName.split(' ')[0],
+                lastName: customerName.split(' ').slice(1).join(' ') || ' ',
                 identification: {
                   type: 'CPF',
                   number: customerCpf.replace(/\D/g, ''),
                 },
-                firstName: customerName.split(' ')[0],
-                lastName: customerName.split(' ').slice(1).join(' ') || ' ',
+                entityType: 'individual',
               },
             },
             customization: {
