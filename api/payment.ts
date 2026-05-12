@@ -307,7 +307,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           description: `${description} #${orderId.slice(0, 5)}`,
           payment_method_id: 'pix',
           payer: {
-            ...brickData?.payer,
             email,
             first_name: firstName,
             last_name: lastName,
@@ -334,7 +333,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           payment_method_id: finalPaymentMethodId,
           ...(finalIssuerId ? { issuer_id: finalIssuerId } : {}),
           payer: {
-            ...brickData?.payer,
             email,
             first_name: firstName,
             last_name: lastName,

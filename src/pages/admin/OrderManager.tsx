@@ -24,7 +24,8 @@ import {
   MapPin,
   CreditCard,
   Lock,
-  Unlock
+  Unlock,
+  Trash2
 } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
