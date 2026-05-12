@@ -68,14 +68,23 @@ const ALLOWED_METHODS = ['pix', 'credit_card', 'debit_card'];
 const ALLOWED_PAYMENT_IDS = ['visa', 'master', 'elo', 'amex', 'hipercard', 'cabal', 'debvisa', 'debmaster'];
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-const DELIVERY_BASE_FEE = parseFloat(process.env.VITE_DELIVERY_BASE_FEE || '5.00');
-const DELIVERY_BASE_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_BASE_RADIUS_KM || '3');
-const DELIVERY_PER_KM_FEE = parseFloat(process.env.VITE_DELIVERY_PER_KM_FEE || '1.50');
-const DELIVERY_MAX_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_MAX_RADIUS_KM || '15');
+const parseEnvNumber = (val: string | undefined, defaultVal: number, emptyIsZero: boolean = false): number => {
+  if (val === undefined) return defaultVal;
+  if (val.trim() === '') return emptyIsZero ? 0 : defaultVal;
+  const parsed = parseFloat(val.replace(',', '.'));
+  return isNaN(parsed) ? defaultVal : parsed;
+};
 
-function calculateServerDeliveryFee(distanceKm: number): number {
+const DELIVERY_BASE_FEE = parseEnvNumber(process.env.VITE_DELIVERY_BASE_FEE, 5.00, true);
+const DELIVERY_BASE_RADIUS_KM = parseEnvNumber(process.env.VITE_DELIVERY_BASE_RADIUS_KM, 3);
+const DELIVERY_PER_KM_FEE = parseEnvNumber(process.env.VITE_DELIVERY_PER_KM_FEE, 1.50, true);
+const DELIVERY_MAX_RADIUS_KM = parseEnvNumber(process.env.VITE_DELIVERY_MAX_RADIUS_KM, 15);
+
+function calculateServerDeliveryFee(distanceKm: number, hasFreeShipping: boolean = false): number {
+  if (isNaN(distanceKm) || distanceKm < 0) return -1;
   const roundedKm = Math.round(distanceKm * 10) / 10;
   if (roundedKm > DELIVERY_MAX_RADIUS_KM) return -1; // Fora da área
+  if (hasFreeShipping) return 0;
   if (roundedKm <= DELIVERY_BASE_RADIUS_KM) return DELIVERY_BASE_FEE;
   
   const extraKm = roundedKm - DELIVERY_BASE_RADIUS_KM;
@@ -231,18 +240,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         name: productData?.nome || 'Produto sem nome',
         price: price,
         quantity: qty,
+        freteGratis: productData?.freteGratis === true,
       });
     }
 
     // Calcular Frete
-    const deliveryFee = calculateServerDeliveryFee(distanceKm);
+    const hasFreeShipping = verifiedItems.some(item => item.freteGratis);
+    const deliveryFee = calculateServerDeliveryFee(distanceKm, hasFreeShipping);
     if (deliveryFee === -1) {
       return res.status(400).json({ error: 'Endereço de entrega está fora da área permitida.' });
     }
 
     const totalAmount = Math.round((subtotal + deliveryFee) * 100) / 100;
     
-    if (totalAmount < 0.01) {
+    if (isNaN(totalAmount) || totalAmount < 0.01) {
       return res.status(400).json({ error: 'Valor total inválido.' });
     }
 

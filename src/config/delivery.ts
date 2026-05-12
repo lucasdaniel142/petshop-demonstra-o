@@ -23,17 +23,24 @@ export const STORE_COORDINATES: Record<StoreId, Coordinates> = {
   vergel_do_lago: { lat: -9.65473763672645, lng: -35.7622505067133 },
 };
 
+const parseEnvNumber = (val: string | undefined, defaultVal: number, emptyIsZero: boolean = false): number => {
+  if (val === undefined) return defaultVal;
+  if (val.trim() === '') return emptyIsZero ? 0 : defaultVal;
+  const parsed = parseFloat(val.replace(',', '.'));
+  return isNaN(parsed) ? defaultVal : parsed;
+};
+
 /** Taxa fixa para entregas dentro do raio base */
-export const DELIVERY_BASE_FEE = parseFloat(import.meta.env.VITE_DELIVERY_BASE_FEE || '5.00');
+export const DELIVERY_BASE_FEE = parseEnvNumber(import.meta.env.VITE_DELIVERY_BASE_FEE, 5.00, true);
 
 /** Raio em KM onde a taxa é fixa (DELIVERY_BASE_FEE) */
-export const DELIVERY_BASE_RADIUS_KM = parseFloat(import.meta.env.VITE_DELIVERY_BASE_RADIUS_KM || '3');
+export const DELIVERY_BASE_RADIUS_KM = parseEnvNumber(import.meta.env.VITE_DELIVERY_BASE_RADIUS_KM, 3);
 
 /** Valor cobrado por KM adicional (além do raio base) */
-export const DELIVERY_PER_KM_FEE = parseFloat(import.meta.env.VITE_DELIVERY_PER_KM_FEE || '1.50');
+export const DELIVERY_PER_KM_FEE = parseEnvNumber(import.meta.env.VITE_DELIVERY_PER_KM_FEE, 1.50, true);
 
 /** Distância máxima de entrega (acima disso = fora da área) */
-export const DELIVERY_MAX_RADIUS_KM = parseFloat(import.meta.env.VITE_DELIVERY_MAX_RADIUS_KM || '15');
+export const DELIVERY_MAX_RADIUS_KM = parseEnvNumber(import.meta.env.VITE_DELIVERY_MAX_RADIUS_KM, 15);
 
 export interface DeliveryCalcResult {
   /** Distância em KM */
@@ -49,7 +56,7 @@ export interface DeliveryCalcResult {
 /**
  * Calcula a taxa de entrega com base na distância em KM.
  */
-export function calculateDeliveryFee(distanceKm: number): DeliveryCalcResult {
+export function calculateDeliveryFee(distanceKm: number, hasFreeShipping: boolean = false): DeliveryCalcResult {
   const roundedKm = Math.round(distanceKm * 10) / 10; // 1 casa decimal
 
   // Fora da área de entrega
@@ -59,6 +66,16 @@ export function calculateDeliveryFee(distanceKm: number): DeliveryCalcResult {
       fee: 0,
       isInRange: false,
       description: `Endereço fora da área de entrega (${roundedKm} km). Máximo: ${DELIVERY_MAX_RADIUS_KM} km.`,
+    };
+  }
+
+  // Frete Grátis por produto promocional
+  if (hasFreeShipping) {
+    return {
+      distanceKm: roundedKm,
+      fee: 0,
+      isInRange: true,
+      description: 'Frete Grátis (Produto Especial)',
     };
   }
 

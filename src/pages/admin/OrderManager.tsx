@@ -208,6 +208,25 @@ const OrderCard: React.FC<{
               <Printer size={14} className="text-muted" />
             </button>
           )}
+          <button
+            onClick={async () => {
+              if (window.confirm('Tem certeza que deseja EXCLUIR permanentemente este pedido?')) {
+                try {
+                  const { deleteDoc, doc } = await import('firebase/firestore');
+                  const { db } = await import('../../lib/firebase');
+                  await deleteDoc(doc(db, 'pedidos', order.id));
+                } catch (err) {
+                  alert('Erro ao excluir pedido.');
+                  console.error(err);
+                }
+              }
+            }}
+            className="p-1.5 hover:bg-red-100 rounded-lg transition-colors"
+            aria-label="Excluir pedido"
+            title="Excluir"
+          >
+            <Trash2 size={14} className="text-red-500" />
+          </button>
         </div>
       </div>
 

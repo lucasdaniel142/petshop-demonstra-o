@@ -166,6 +166,7 @@ export default function ProductManager() {
         categoria: formData.categoria,
         unit: formData.unit,
         precos: formData.precos,
+        freteGratis: formData.freteGratis || false,
       };
 
       if (editingId) {
@@ -292,6 +293,20 @@ export default function ProductManager() {
                 <option value="un">Unidade (un)</option>
                 <option value="kg">Quilograma (kg)</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-[600] text-text mb-2">Promoções Especiais</label>
+              <label className="flex items-center gap-2 cursor-pointer mt-3">
+                <input
+                  type="checkbox"
+                  checked={formData.freteGratis || false}
+                  onChange={(e) => setFormData({ ...formData, freteGratis: e.target.checked })}
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-[14px] text-text">Oferecer Frete Grátis neste produto</span>
+              </label>
+              <p className="text-[11px] text-muted mt-1">Ao adicionar este produto ao carrinho, a taxa de entrega de todo o pedido será R$ 0,00.</p>
             </div>
 
             <div>

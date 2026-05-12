@@ -21,6 +21,7 @@ export interface FirestoreProduct {
   unit: 'un' | 'kg';
   descricao?: string;
   precos: Partial<Record<StoreId, StorePrice>>;
+  freteGratis?: boolean;
 }
 
 // --- Produto normalizado para uso nos componentes da vitrine ---
@@ -33,6 +34,7 @@ export interface Product {
   category: string;
   storeId?: string;
   description?: string;
+  freteGratis?: boolean;
 }
 
 // --- Item no carrinho ---
@@ -48,6 +50,7 @@ export interface AdminProduct {
   imageUrl: string;
   unit: 'un' | 'kg';
   precos: Record<StoreId, StorePrice>;
+  freteGratis?: boolean;
 }
 
 // --- Produto gerenciado no ProductManager (campos opcionais) ---
@@ -59,6 +62,7 @@ export interface ManagedProduct {
   categoria: string;
   unit: 'un' | 'kg';
   precos: Record<StoreId, StorePrice>;
+  freteGratis?: boolean;
 }
 
 // --- Usuário administrador ---

@@ -31,9 +31,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     totalWithDelivery,
   } = useCart();
 
+  const hasFreeShipping = items.some(item => item.freteGratis);
+
+  // Recalculate dynamic delivery based on cart items (in case cart changed after CEP lookup)
+  const calculatedDelivery = delivery ? calculateDeliveryFee(delivery.distanceKm, hasFreeShipping) : null;
+  const activeDelivery = calculatedDelivery || delivery;
+  
   // Taxa de entrega: dinâmica (por distância) ou fallback estático
-  const deliveryFee = delivery?.fee ?? DELIVERY_BASE_FEE;
-  const totalGeral = delivery ? totalWithDelivery : cartTotal + DELIVERY_BASE_FEE;
+  const deliveryFee = activeDelivery?.fee ?? (hasFreeShipping ? 0 : DELIVERY_BASE_FEE);
+  const totalGeral = cartTotal + deliveryFee;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -95,7 +101,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       const distanceKm = haversineDistance(STORE_COORDINATES[selectedStoreId], coords);
 
       // 4. Cálculo da taxa
-      const result = calculateDeliveryFee(distanceKm);
+      const result = calculateDeliveryFee(distanceKm, hasFreeShipping);
       setDeliveryInfo(result);
 
       if (!result.isInRange) {
