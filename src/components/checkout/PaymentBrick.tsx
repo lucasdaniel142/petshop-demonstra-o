@@ -98,7 +98,7 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
                   const data = await res.json();
 
                   if (!res.ok) {
-                    setRejected(data.error || 'Erro ao processar pagamento.');
+                    setError(data.error || 'Erro ao processar pagamento.');
                     return;
                   }
 

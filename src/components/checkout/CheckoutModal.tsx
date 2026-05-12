@@ -167,8 +167,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div>
                 <h3 className="font-bold text-gray-900">Algo deu errado</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Não conseguimos processar o carregamento do checkout. 
-                  Tente atualizar a página ou entre em contato.
+                  {usePaymentStore.getState().errorMessage || 'Não conseguimos processar o pagamento. Tente novamente.'}
                 </p>
               </div>
               <button
