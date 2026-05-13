@@ -270,7 +270,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         id: docSnap.id,
         title: (productData?.nome || 'Produto').slice(0, 250),
         description: (productData?.descricao || productData?.categoria || 'Produto de Supermercado').slice(0, 250),
-        category_id: 'supermarket', // Categoria fixa recomendada
+        category_id: 'others', // Categoria fixa recomendada e segura
         quantity: qty,
         unit_price: price,
       });
@@ -281,6 +281,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const deliveryFee = calculateServerDeliveryFee(distanceKm, hasFreeShipping);
     if (deliveryFee === -1) {
       return res.status(400).json({ error: 'Endereço de entrega está fora da área permitida.' });
+    }
+
+    if (deliveryFee > 0) {
+      mpItems.push({
+        id: 'shipping',
+        title: 'Taxa de Entrega',
+        description: 'Serviço de entrega em domicílio',
+        category_id: 'others',
+        quantity: 1,
+        unit_price: deliveryFee,
+      });
     }
 
     const totalAmount = Math.round((subtotal + deliveryFee) * 100) / 100;
