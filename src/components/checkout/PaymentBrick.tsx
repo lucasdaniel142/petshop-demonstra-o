@@ -30,7 +30,7 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const brickControllerRef = useRef<any>(null);
-  const { setProcessing, setPixPending, setApproved, setRejected, setError } = usePaymentStore();
+  const { error, setProcessing, setPixPending, setApproved, setRejected, setError } = usePaymentStore();
 
   useEffect(() => {
     let mounted = true;
