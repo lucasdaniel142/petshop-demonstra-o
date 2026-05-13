@@ -161,8 +161,20 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
   }, []); // Re-render only on mount
 
   return (
-    <div className="min-h-[400px] w-full">
-      <div id="payment-brick-container" ref={containerRef}></div>
+    <div className="min-h-[400px] w-full relative">
+      {error && (
+        <div className="absolute top-0 left-0 w-full p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400 z-10 border border-red-200">
+          <p className="font-semibold">Erro no pagamento:</p>
+          <p>{error}</p>
+          <button 
+            onClick={() => setError(null)}
+            className="mt-2 text-xs underline hover:text-red-900"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      <div id="payment-brick-container" ref={containerRef} className={error ? 'opacity-50 pointer-events-none' : ''}></div>
     </div>
   );
 };

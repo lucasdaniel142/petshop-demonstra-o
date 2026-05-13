@@ -394,7 +394,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               last_name: lastName,
             }
           },
-          statement_descriptor: (process.env.VITE_STORE_NAME || 'SUPERMERCADO').substring(0, 20),
+          statement_descriptor: (process.env.VITE_STORE_NAME || 'SUPERMERCADO').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 20),
           notification_url: `${getBaseUrl(req)}/api/webhook`,
           external_reference: orderId,
         },
