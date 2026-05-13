@@ -117,6 +117,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 customerName={customerName}
                 storeId={storeId}
                 distanceKm={distanceKm}
+                deliveryAddress={deliveryAddress}
+                cep={cep}
                 onSuccess={onSuccess}
               />
             </div>

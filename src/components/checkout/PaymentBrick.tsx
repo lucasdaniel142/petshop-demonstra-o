@@ -11,6 +11,8 @@ interface PaymentBrickProps {
   customerName: string;
   storeId: string;
   distanceKm: number;
+  deliveryAddress: string;
+  cep: string;
   onSuccess: () => void;
 }
 
@@ -22,6 +24,8 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
   customerName,
   storeId,
   distanceKm,
+  deliveryAddress,
+  cep,
   onSuccess,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +94,8 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
                     customerName,
                     email: customerEmail,
                     cpf: customerCpf,
+                    deliveryAddress,
+                    cep,
                     description: `Pedido Online - ${import.meta.env.VITE_STORE_NAME || 'Loja'}`,
                   };
 

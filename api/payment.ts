@@ -197,7 +197,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // CPF: pode vir de body.cpf OU do Brick em body.payer.identification.number
     const rawCpfInput = body?.cpf || body?.payer?.identification?.number || '';
     const rawCpf = typeof rawCpfInput === 'string' ? rawCpfInput.replace(/\D/g, '') : '';
-    if (rawCpf && !validateCPF(rawCpf)) {
+    if (!rawCpf || rawCpf.length !== 11) {
+      return res.status(400).json({ error: 'CPF é obrigatório para pagamento online. Informe um CPF válido.' });
+    }
+    if (!validateCPF(rawCpf)) {
       return res.status(400).json({ error: 'CPF inválido.' });
     }
 
@@ -329,8 +332,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             email,
             first_name: firstName,
             last_name: lastName,
-            entity_type: 'individual',
-            ...(rawCpf ? { identification: { type: 'CPF', number: rawCpf } } : {}),
+            identification: { type: 'CPF', number: rawCpf },
           },
           notification_url: `${getBaseUrl(req)}/api/webhook`,
           external_reference: orderId,
@@ -355,8 +357,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             email,
             first_name: firstName,
             last_name: lastName,
-            entity_type: 'individual',
-            ...(rawCpf ? { identification: { type: 'CPF', number: rawCpf } } : {}),
+            identification: { type: 'CPF', number: rawCpf },
           },
           notification_url: `${getBaseUrl(req)}/api/webhook`,
           external_reference: orderId,

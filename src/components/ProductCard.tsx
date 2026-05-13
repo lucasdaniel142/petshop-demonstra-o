@@ -22,7 +22,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, storePrice, s
     if (disabled || !storePrice) return;
     addItem({
       ...product,
-      price: storePrice.valor,
+      price: storePrice?.valor ?? product.price,
       storeId,
     });
   };

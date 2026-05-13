@@ -74,10 +74,26 @@ export default function ProductManager() {
     const unsubscribe = onSnapshot(
       collection(db, 'produtos'),
       (snapshot) => {
-        const prods: ManagedProduct[] = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<ManagedProduct, 'id'>),
-        }));
+        const prods: ManagedProduct[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          // Garante que todos os stores tenham preço (evita crash ao editar)
+          const rawPrecos = (data.precos || {}) as Record<string, StorePrice>;
+          const safePrecos = STORE_IDS.reduce((acc, id) => ({
+            ...acc,
+            [id]: rawPrecos[id] || { ...DEFAULT_STORE_PRICE },
+          }), {} as Record<StoreId, StorePrice>);
+
+          return {
+            id: docSnap.id,
+            nome: data.nome || 'Produto sem nome',
+            descricao: data.descricao || '',
+            imageUrl: data.imageUrl || '',
+            categoria: data.categoria || 'Geral',
+            unit: data.unit || 'un',
+            precos: safePrecos,
+            freteGratis: data.freteGratis === true,
+          } as ManagedProduct;
+        });
         setProdutos(prods.sort((a, b) => a.nome.localeCompare(b.nome)));
       },
       (err) => {
@@ -99,7 +115,7 @@ export default function ProductManager() {
       ...prev,
       precos: {
         ...prev.precos,
-        [loja]: { ...prev.precos[loja], valor: numVal },
+        [loja]: { ...(prev.precos[loja] || DEFAULT_STORE_PRICE), valor: numVal },
       },
     }));
   };
@@ -361,7 +377,7 @@ export default function ProductManager() {
                       <span className="text-muted text-[14px] font-[600] shrink-0">R$</span>
                       <input
                         type="number"
-                        value={formData.precos[loja.id].valor === 0 ? '' : formData.precos[loja.id].valor}
+                        value={(formData.precos[loja.id]?.valor ?? 0) === 0 ? '' : (formData.precos[loja.id]?.valor ?? 0)}
                         onChange={(e) => handlePriceChange(loja.id, e.target.value)}
                         step="0.01"
                         min="0"
