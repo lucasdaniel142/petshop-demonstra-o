@@ -224,6 +224,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── 2. Cálculo do Preço (Server-Side) ──
     let subtotal = 0;
     const verifiedItems = [];
+    const mpItems = []; // Itens no formato esperado pelo anti-fraude do MP
 
     // Busca os produtos no Firestore para garantir o preço real
     for (const item of items) {
@@ -263,6 +264,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         price: price,
         quantity: qty,
         freteGratis: productData?.freteGratis === true,
+      });
+
+      mpItems.push({
+        id: docSnap.id,
+        title: (productData?.nome || 'Produto').slice(0, 250),
+        description: (productData?.descricao || productData?.categoria || 'Produto de Supermercado').slice(0, 250),
+        category_id: 'supermarket', // Categoria fixa recomendada
+        quantity: qty,
+        unit_price: price,
       });
     }
 
@@ -334,6 +344,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             last_name: lastName,
             identification: { type: 'CPF', number: rawCpf },
           },
+          additional_info: {
+            items: mpItems,
+            payer: {
+              first_name: firstName,
+              last_name: lastName,
+            }
+          },
           notification_url: `${getBaseUrl(req)}/api/webhook`,
           external_reference: orderId,
         },
@@ -359,6 +376,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             last_name: lastName,
             identification: { type: 'CPF', number: rawCpf },
           },
+          additional_info: {
+            items: mpItems,
+            payer: {
+              first_name: firstName,
+              last_name: lastName,
+            }
+          },
+          statement_descriptor: (process.env.VITE_STORE_NAME || 'SUPERMERCADO').substring(0, 20),
           notification_url: `${getBaseUrl(req)}/api/webhook`,
           external_reference: orderId,
         },
