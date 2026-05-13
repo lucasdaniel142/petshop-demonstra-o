@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Check, Tag, X, Bell } from 'lucide-react';
+import { Search, Check, Tag, X, Bell, Truck } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { getPlaceholderImage } from '../../utils/placeholderImage';
@@ -58,6 +58,7 @@ export const PriceManager: React.FC = () => {
               ...acc,
               [id]: DEFAULT_STORE_PRICE
             }), {}),
+            freteGratis: data.freteGratis === true,
           };
         });
         setProducts(loadedProducts);
@@ -103,6 +104,27 @@ export const PriceManager: React.FC = () => {
       console.error(`Erro ao atualizar ${field}:`, err);
       setSaveStatuses((prev) => ({ ...prev, [productId]: 'error' }));
       setFeedback({ type: 'error', message: 'Falha ao salvar. Verifique sua conexão e tente novamente.' });
+    } finally {
+      clearTimeout(timeoutRefs.current[productId]);
+      timeoutRefs.current[productId] = setTimeout(() => {
+        setSaveStatuses((prev) => ({ ...prev, [productId]: 'idle' }));
+      }, 2500);
+    }
+  };
+
+  const handleToggleFreteGratis = async (productId: string, currentValue: boolean) => {
+    setSaveStatuses((prev) => ({ ...prev, [productId]: 'saving' }));
+
+    try {
+      await updateDoc(doc(db, 'produtos', productId), {
+        freteGratis: !currentValue,
+      });
+
+      setSaveStatuses((prev) => ({ ...prev, [productId]: 'success' }));
+    } catch (err) {
+      console.error('Erro ao atualizar frete grátis:', err);
+      setSaveStatuses((prev) => ({ ...prev, [productId]: 'error' }));
+      setFeedback({ type: 'error', message: 'Falha ao atualizar frete grátis. Verifique sua conexão.' });
     } finally {
       clearTimeout(timeoutRefs.current[productId]);
       timeoutRefs.current[productId] = setTimeout(() => {
@@ -212,6 +234,12 @@ export const PriceManager: React.FC = () => {
                 <th className="p-4 font-[600] w-[160px]">Preço ({isOverview ? 'Ref.' : 'Atual'})</th>
                 <th className="p-4 font-[600] w-[120px] text-center">Em Oferta</th>
                 <th className="p-4 font-[600] w-[120px] text-center">Esgotado</th>
+                <th className="p-4 font-[600] w-[120px] text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Truck size={14} />
+                    Frete Grátis
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -309,13 +337,28 @@ export const PriceManager: React.FC = () => {
                             />
                           </div>
                         </td>
+
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-1">
+                            <ToggleSwitch
+                              checked={product.freteGratis === true}
+                              onChange={() => handleToggleFreteGratis(product.id, product.freteGratis === true)}
+                              disabled={isOverview}
+                              colorClass="bg-emerald-500"
+                              ariaLabel={`${product.nome} frete grátis`}
+                            />
+                            {product.freteGratis && (
+                              <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wide">Ativo</span>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
 
                   {filteredProducts.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-muted">
+                      <td colSpan={5} className="p-8 text-center text-muted">
                         <Tag size={48} className="mx-auto mb-4 opacity-20" />
                         <p className="text-[15px] font-[500]">Nenhum produto encontrado.</p>
                       </td>

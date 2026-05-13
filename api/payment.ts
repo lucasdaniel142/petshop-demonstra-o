@@ -15,6 +15,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { randomUUID } from 'crypto';
 import { encryptPII } from './utils/encryption.js';
+
+// Tipo auxiliar para itens do carrinho recebidos do client
+interface CartItemPayload {
+  id: string;
+  quantity: number;
+}
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
@@ -145,7 +151,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!accessToken) {
-    return res.status(503).json({ error: 'Serviço de pagamento indisponível.' });
+    console.error('[payment] MP_ACCESS_TOKEN não configurado — retornando 503');
+    return res.status(503).json({ error: 'Serviço de pagamento temporariamente indisponível. Tente novamente em instantes.' });
   }
 
   try {
@@ -205,7 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cep = sanitizeString(body?.cep, 20) || '';
     
     const distanceKm = Number(body?.distanceKm) || 0;
-    const items = Array.isArray(body?.items) ? body.items : [];
+    const items: CartItemPayload[] = Array.isArray(body?.items) ? body.items : [];
 
     if (items.length === 0) {
       return res.status(400).json({ error: 'O carrinho está vazio.' });
@@ -217,22 +224,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Busca os produtos no Firestore para garantir o preço real
     for (const item of items) {
+      if (!item?.id || typeof item.id !== 'string') continue;
       const qty = Number(item.quantity);
-      if (!qty || qty <= 0) continue;
+      if (!qty || qty <= 0 || qty > 999) continue;
 
-      const docSnap = await adminDb.collection('produtos').doc(item.id).get();
+      let docSnap;
+      try {
+        docSnap = await adminDb.collection('produtos').doc(item.id).get();
+      } catch (dbErr: any) {
+        console.error(`[payment] Firestore error fetching product ${item.id}:`, dbErr.message);
+        return res.status(500).json({ error: 'Erro ao verificar produtos. Tente novamente.' });
+      }
+
       if (!docSnap.exists) {
-        return res.status(400).json({ error: `Produto ${item.id} não encontrado ou inativo.` });
+        return res.status(400).json({ error: `Produto não encontrado ou inativo.` });
       }
 
       const productData = docSnap.data();
       const priceData = productData?.precos?.[storeId];
 
-      if (!priceData || priceData.esgotado) {
-        return res.status(400).json({ error: `O produto '${productData?.nome}' está esgotado ou indisponível nesta loja.` });
+      if (!priceData || typeof priceData.valor === 'undefined' || priceData.esgotado) {
+        return res.status(400).json({ error: `O produto '${productData?.nome || 'Desconhecido'}' está esgotado ou indisponível nesta loja.` });
       }
 
       const price = Number(priceData.valor) || 0;
+      if (price <= 0) {
+        return res.status(400).json({ error: `O produto '${productData?.nome || 'Desconhecido'}' está com preço inválido nesta loja.` });
+      }
+
       subtotal += price * qty;
       
       verifiedItems.push({

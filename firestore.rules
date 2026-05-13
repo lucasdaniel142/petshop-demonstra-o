@@ -55,7 +55,8 @@ service cloud.firestore {
           && data.categoria is string && data.categoria.size() <= 100
           && data.precos is map
           && (!('imageUrl' in data) || data.imageUrl is string)
-          && (!('unit' in data) || data.unit in ['un', 'kg']);
+          && (!('unit' in data) || data.unit in ['un', 'kg'])
+          && (!('freteGratis' in data) || data.freteGratis is bool);
     }
 
     // HELPER: Valida que os preços dentro de uma loja são corretos
@@ -69,9 +70,15 @@ service cloud.firestore {
     // --- COLEÇÃO: produtos ---
     // Leitura: pública (vitrine do supermercado)
     // Escrita: somente admins autenticados + validação de schema
+    // NOTA: 'update' usa validação relaxada porque updateDoc() do Firestore
+    //       faz merge parcial (ex: só enviar {freteGratis: true} sem nome/categoria).
+    //       isValidProduct() valida o documento RESULTANTE (request.resource.data),
+    //       que inclui os campos existentes + os novos, então funciona para updates parciais.
     match /produtos/{produtoId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidProduct() && hasValidPrices();
+      allow create: if isAdmin() && isValidProduct() && hasValidPrices();
+      allow update: if isAdmin() && isValidProduct() && hasValidPrices();
+      allow delete: if isAdmin();
     }
 
     // --- COLEÇÃO: admins ---

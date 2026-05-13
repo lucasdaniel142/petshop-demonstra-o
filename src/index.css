@@ -24,3 +24,13 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Fix: Mercado Pago SDK renders SVGs with empty width/height attributes.
+   This CSS provides a sensible default to prevent rendering errors. */
+#payment-brick-container svg:not([width]),
+#payment-brick-container svg[width=""],
+#wallet-brick-container svg:not([width]),
+#wallet-brick-container svg[width=""] {
+  width: auto;
+  height: auto;
+}

@@ -142,12 +142,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         name: productData?.nome || 'Produto sem nome',
         price,
         quantity: qty,
+        freteGratis: productData?.freteGratis === true,
       });
     }
 
     // ── Taxa de Entrega Server-Side ──
     const distance = Number(distanceKm) || 0;
-    const deliveryFee = calculateServerDeliveryFee(distance);
+    const hasFreeShipping = verifiedItems.some(item => item.freteGratis);
+    const deliveryFee = hasFreeShipping ? 0 : calculateServerDeliveryFee(distance);
     if (deliveryFee === -1) {
       return res.status(400).json({ error: 'Endereço fora da área de entrega.' });
     }

@@ -46,6 +46,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, storePrice, s
             Oferta
           </span>
         )}
+        {product.freteGratis && !storePrice?.esgotado && (
+          <span className="absolute bottom-2 left-2 bg-emerald-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5">
+            🚚 Frete Grátis
+          </span>
+        )}
         {storePrice?.esgotado && (
           <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
             Esgotado

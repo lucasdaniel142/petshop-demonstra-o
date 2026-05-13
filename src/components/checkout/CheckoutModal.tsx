@@ -170,12 +170,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {usePaymentStore.getState().errorMessage || 'Não conseguimos processar o pagamento. Tente novamente.'}
                 </p>
               </div>
-              <button
-                onClick={onClose}
-                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors"
-              >
-                Fechar
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    usePaymentStore.getState().reset();
+                    usePaymentStore.getState().openCheckout();
+                  }}
+                  className="px-6 py-2 bg-primary text-white font-bold rounded-lg transition-colors hover:bg-primary/90"
+                >
+                  Tentar Novamente
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           )}
         </div>

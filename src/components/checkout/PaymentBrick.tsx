@@ -81,24 +81,28 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
               onSubmit: async (formData: any) => {
                 setProcessing();
                 try {
+                  const payload = {
+                    formData, // Dados do Brick (token, payment_method_id, etc)
+                    ...formData, // Spread também no nível raiz para compatibilidade
+                    items: items.map(i => ({ id: i.id, quantity: i.quantity })),
+                    storeId,
+                    distanceKm,
+                    customerName,
+                    email: customerEmail,
+                    cpf: customerCpf,
+                    description: `Pedido Online - ${import.meta.env.VITE_STORE_NAME || 'Loja'}`,
+                  };
+
                   const res = await fetch('/api/payment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      ...formData, // Inclui o payload do Brick (token, installments, etc)
-                      items: items.map(i => ({ id: i.id, quantity: i.quantity })),
-                      storeId,
-                      distanceKm,
-                      customerName,
-                      email: customerEmail,
-                      cpf: customerCpf,
-                    }),
+                    body: JSON.stringify(payload),
                   });
 
                   const data = await res.json();
 
                   if (!res.ok) {
-                    setError(data.error || 'Erro ao processar pagamento.');
+                    setError(data.error || `Erro ao processar pagamento (${res.status}).`);
                     return;
                   }
 
@@ -114,15 +118,17 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
                       pixExpiration: data.pixExpiration,
                     });
                   } else {
-                    setRejected(data.statusDetail || 'Pagamento não aprovado.');
+                    setRejected(data.statusDetail || 'Pagamento não aprovado. Verifique os dados e tente novamente.');
                   }
                 } catch (err) {
-                  setError('Erro de conexão com o servidor.');
+                  console.error('[PaymentBrick] Submit error:', err);
+                  setError('Erro de conexão com o servidor. Verifique sua internet e tente novamente.');
                 }
               },
               onError: (error: any) => {
                 if (import.meta.env.DEV) console.error('Payment Brick Error:', error);
-                setError('Erro ao carregar o checkout do Mercado Pago.');
+                // Não setar erro global para erros de renderização do Brick
+                // Muitos são erros de validação interna que o próprio Brick exibe
               },
             },
           };

@@ -57,6 +57,7 @@ export const Home: React.FC = () => {
           imageUrl: data.imageUrl || data.imagem || '',
           unit: data.unit || 'un',
           precos: data.precos || {},
+          freteGratis: data.freteGratis === true,
         };
       });
 
@@ -87,8 +88,8 @@ export const Home: React.FC = () => {
   const availableProducts = useMemo(() => {
     return products
       .filter((product) => {
-        const price = product.precos[selectedStore];
-        return Boolean(price && !price.esgotado);
+        const price = product.precos?.[selectedStore];
+        return Boolean(price && typeof price.valor === 'number' && price.valor > 0 && !price.esgotado);
       })
       .filter((product) => {
         if (selectedCategory === 'all') return true;
@@ -148,22 +149,26 @@ export const Home: React.FC = () => {
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[20px]">
-        {availableProducts.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={{
-              id: product.id,
-              name: product.nome,
-              category: product.categoria,
-              imageUrl: product.imageUrl,
-              unit: product.unit,
-              price: product.precos[selectedStore]?.valor ?? 0,
-              storeId: selectedStore,
-            }}
-            storePrice={product.precos[selectedStore]}
-            storeId={selectedStore}
-          />
-        ))}
+        {availableProducts.map((product) => {
+          const storePrice = product.precos?.[selectedStore];
+          return (
+            <ProductCard
+              key={product.id}
+              product={{
+                id: product.id,
+                name: product.nome,
+                category: product.categoria,
+                imageUrl: product.imageUrl,
+                unit: product.unit,
+                price: storePrice?.valor ?? 0,
+                storeId: selectedStore,
+                freteGratis: product.freteGratis === true,
+              }}
+              storePrice={storePrice}
+              storeId={selectedStore}
+            />
+          );
+        })}
       </div>
     );
   };
