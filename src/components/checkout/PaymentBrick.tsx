@@ -67,7 +67,6 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
             },
             customization: {
               paymentMethods: {
-                ticket: 'all',
                 bankTransfer: 'all',
                 creditCard: 'all',
                 debitCard: 'all',
@@ -146,8 +145,8 @@ export const PaymentBrick: React.FC<PaymentBrickProps> = ({
 
         await renderPaymentBrick(bricksBuilder);
       } catch (err) {
-        if (import.meta.env.DEV) console.error('Failed to load MP SDK:', err);
-        setError('Erro ao inicializar o sistema de pagamentos.');
+        console.error('[PaymentBrick] Failed to load or create MP Brick:', err);
+        setError('Erro ao inicializar o formulário de pagamento. Verifique se os dados estão corretos.');
       }
     };
 
