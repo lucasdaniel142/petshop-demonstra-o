@@ -16,10 +16,13 @@ import ProductManager from './pages/admin/ProductManager';
 import { OrderManager } from './pages/admin/OrderManager';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 
+import { InstallPWA } from './components/InstallPWA';
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <InstallPWA />
         <Routes>
           {/* Rota Pública (Vitrine) */}
           <Route path="/" element={<Home />} />

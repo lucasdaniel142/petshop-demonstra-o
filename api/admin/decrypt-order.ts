@@ -1,24 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-import { decryptPII } from '../utils/encryption.js';
-
-if (getApps().length === 0) {
-  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    try {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-      initializeApp({ credential: cert(serviceAccount) });
-    } catch {
-      initializeApp({ projectId });
-    }
-  } else {
-    initializeApp({ projectId });
-  }
-}
-
-const adminDb = getFirestore();
+import { adminDb, adminAuth } from '../_utils/firebaseAdmin';
+import { decryptPII } from '../_utils/encryption';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
@@ -38,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = authHeader.split('Bearer ')[1];
     let decodedToken;
     try {
-      decodedToken = await getAuth().verifyIdToken(token);
+      decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
       return res.status(401).json({ error: 'Token inválido.' });
     }

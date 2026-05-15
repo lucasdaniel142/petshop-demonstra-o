@@ -20,13 +20,12 @@ self.addEventListener('install', () => {
 // ou simplesmente deixar comentado e documentado.
 
 const firebaseConfig = {
-  // ATENÇÃO: Para usar notificações push em background (com app fechado),
-  // Substitua as strings abaixo pelas mesmas configurações do seu .env.local
-  // apiKey: "API_KEY",
-  // authDomain: "AUTH_DOMAIN",
-  // projectId: "PROJECT_ID",
-  // messagingSenderId: "SENDER_ID",
-  // appId: "APP_ID"
+  apiKey: "AIzaSyD8uwYVG34wf5m0BlbFOf6_Dmdlh0lqGs4",
+  authDomain: "sagrada-familia-a334e.firebaseapp.com",
+  projectId: "sagrada-familia-a334e",
+  storageBucket: "sagrada-familia-a334e.firebasestorage.app",
+  messagingSenderId: "748039006363",
+  appId: "1:748039006363:web:f318f33b15992792427e3e"
 };
 
 try {

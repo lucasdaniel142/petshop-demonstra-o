@@ -94,15 +94,33 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // HELPER: Valida o schema de um pedido no checkout
+    function isValidOrder() {
+      let data = request.resource.data;
+      return data.items is list && data.items.size() > 0
+          && data.subtotal is number && data.subtotal >= 0
+          && data.deliveryFee is number && data.deliveryFee >= 0
+          && data.total is number && data.total > 0
+          && data.customerName is string && data.customerName.size() > 0
+          && data.customerPhone is string && data.customerPhone.size() >= 10
+          && data.deliveryAddress is string && data.deliveryAddress.size() > 0
+          && data.cep is string && data.cep.size() >= 8
+          && data.storeId is string
+          && data.paymentMethod in ['dinheiro', 'pix_presencial', 'ticket', 'maquininha']
+          && data.paymentStatus == 'pending'
+          && (!('changeFor' in data) || data.changeFor == null || data.changeFor is number)
+          && data.createdAt == request.time;
+    }
+
     // --- COLEÇÃO: pedidos ---
-    // Escrita: APENAS via Firebase Admin SDK (webhook serverless).
-    //   O client-side NUNCA escreve diretamente nesta coleção.
-    //   O Admin SDK (usado nas Vercel API Routes) ignora estas regras.
     // Leitura: Admins podem ler todos os pedidos (para gestão).
+    // Escrita (Create): Qualquer usuário pode criar um pedido (Checkout no CartDrawer).
+    // Escrita (Update/Delete): Apenas Admins podem alterar status ou excluir.
     match /pedidos/{pedidoId} {
       allow read: if isAdmin();
+      allow create: if isValidOrder(); // Valida schema para evitar lixo no DB
+      allow update: if isAdmin(); // Permite que o painel admin atualize o status
       allow delete: if isAdmin(); // Permite que admins excluam pedidos
-      allow create, update: if false; // Bloqueado no client — apenas Admin SDK
     }
 
     // --- COLEÇÃO: fcmTokens ---
@@ -111,11 +129,9 @@ service cloud.firestore {
     // e o payload só pode conter o token, updatedAt e platform para evitar DoS e injeção de dados.
     match /fcmTokens/{tokenId} {
       allow read: if isAdmin();
-      allow create, update: if request.resource.data.keys().hasOnly(['token', 'updatedAt', 'platform'])
-                            && request.resource.data.token == tokenId
-                            && request.resource.data.token is string
-                            && request.resource.data.token.size() < 300
-                            && (!('platform' in request.resource.data) || request.resource.data.platform is string);
+      allow create, update: if request.resource.data.keys().hasOnly(['lastUsed', 'customerName', 'platform', 'token'])
+                            && (tokenId.size() > 0)
+                            && (!('customerName' in request.resource.data) || request.resource.data.customerName is string);
       allow delete: if isAdmin();
     }
 

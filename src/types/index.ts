@@ -94,16 +94,15 @@ export const DEFAULT_STORE_PRICE: StorePrice = {
   esgotado: false,
 };
 
-// --- Pagamento (Mercado Pago Checkout Transparente) ---
-export type PaymentMethodType = 'pix' | 'credit_card' | 'debit_card';
+// --- Pagamento na Entrega ---
+export type PaymentMethodType = 'dinheiro' | 'maquininha' | 'ticket' | 'pix_presencial';
 
-export type PaymentStatus =
-  | 'idle'
-  | 'processing'
-  | 'pending'       // Pix gerado, aguardando pagamento
-  | 'approved'
-  | 'rejected'
-  | 'error';
+export type OrderStatus =
+  | 'pending'       // Novo Pedido recebido
+  | 'preparing'     // Em separação
+  | 'shipped'       // Saiu para entrega
+  | 'delivered'     // Entregue
+  | 'cancelled';    // Cancelado
 
 export interface Order {
   id: string;
@@ -117,8 +116,8 @@ export interface Order {
   storeId: StoreId;
   storeLabel: string;
   paymentMethod: PaymentMethodType;
-  paymentStatus: PaymentStatus;
-  mpPaymentId?: number;
+  paymentStatus: OrderStatus;
+  changeFor?: number | null; // Troco para (dinheiro)
   createdAt: unknown; // Firestore Timestamp
   updatedAt?: unknown;
 }

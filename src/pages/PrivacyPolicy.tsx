@@ -63,9 +63,7 @@ export const PrivacyPolicy: React.FC = () => {
             <ul className="list-disc ml-5 mt-2 space-y-1">
               <li><strong>Nome completo</strong> — para identificação do pedido e entrega</li>
               <li><strong>Endereço de entrega e CEP</strong> — para cálculo de frete e envio do pedido</li>
-              <li><strong>E-mail</strong> — para processamento do pagamento online (quando aplicável)</li>
-              <li><strong>CPF</strong> — exigido pela operadora de pagamento para transações online</li>
-              <li><strong>Número de WhatsApp</strong> — quando o pedido é enviado por esta via</li>
+              <li><strong>Número de WhatsApp</strong> — para contato e envio do resumo do pedido</li>
             </ul>
           </section>
 
@@ -75,8 +73,7 @@ export const PrivacyPolicy: React.FC = () => {
             <ul className="list-disc ml-5 mt-2 space-y-1">
               <li>Processar e entregar seus pedidos</li>
               <li>Calcular a taxa de entrega com base na distância</li>
-              <li>Processar pagamentos via Mercado Pago (Pix e cartão de crédito)</li>
-              <li>Enviar atualizações sobre o status do seu pedido</li>
+              <li>Enviar atualizações sobre o status do seu pedido via WhatsApp</li>
               <li>Cumprir obrigações legais e regulatórias</li>
             </ul>
             <p className="mt-2">
@@ -90,8 +87,8 @@ export const PrivacyPolicy: React.FC = () => {
             <p>Implementamos medidas técnicas e organizacionais para proteger seus dados:</p>
             <ul className="list-disc ml-5 mt-2 space-y-1">
               <li>
-                <strong>Criptografia AES-256</strong> — dados sensíveis (nome, CPF, endereço)
-                são criptografados antes de serem armazenados
+                <strong>Criptografia em Repouso e Trânsito</strong> — todos os dados são
+                protegidos pelos protocolos de segurança do Google Firebase e HTTPS
               </li>
               <li>
                 <strong>HTTPS obrigatório</strong> — toda comunicação entre seu navegador e
@@ -100,10 +97,6 @@ export const PrivacyPolicy: React.FC = () => {
               <li>
                 <strong>Acesso restrito</strong> — apenas administradores autorizados da
                 loja têm acesso aos dados de pedidos
-              </li>
-              <li>
-                <strong>Processamento seguro de pagamentos</strong> — os dados do cartão
-                são processados diretamente pelo Mercado Pago e nunca passam pelo nosso servidor
               </li>
             </ul>
           </section>
@@ -116,13 +109,8 @@ export const PrivacyPolicy: React.FC = () => {
             </p>
             <ul className="list-disc ml-5 mt-2 space-y-1">
               <li>
-                <strong>Mercado Pago</strong> — processamento de pagamentos (sujeito à{' '}
-                <a href="https://www.mercadopago.com.br/privacidade" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  política de privacidade do Mercado Pago
-                </a>)
-              </li>
-              <li>
                 <strong>Firebase (Google)</strong> — armazenamento seguro dos dados de pedidos
+                em conformidade com padrões globais de segurança
               </li>
             </ul>
           </section>

@@ -39,12 +39,8 @@ self.addEventListener('fetch', (event) => {
     event.request.url.includes('viacep.com.br') ||
     event.request.url.includes('nominatim.openstreetmap.org') ||
     event.request.url.includes('api.imgbb.com') ||
-    event.request.url.includes('sdk.mercadopago.com') ||
     event.request.url.includes('img.icons8.com') ||
     event.request.url.includes('vercel.live') ||
-    event.request.url.includes('mlstatic.com') ||
-    event.request.url.includes('mercadopago.com') ||
-    event.request.url.includes('mercadolibre.com') ||
     event.request.url.includes('chrome-extension://') ||
     event.request.method !== 'GET'
   ) {

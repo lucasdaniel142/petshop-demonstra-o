@@ -25,7 +25,8 @@ import {
   CreditCard,
   Lock,
   Unlock,
-  Trash2
+  Trash2,
+  MessageCircle
 } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
@@ -45,43 +46,39 @@ interface Order {
   deliveryFee: number;
   total: number;
   customerName: string;
-  customerEmail: string;
-  customerCpf: string;
+  customerPhone: string;
   deliveryAddress: string;
   cep: string;
   storeId: string;
   paymentMethod: string;
   paymentStatus: string;
-  mpPaymentId?: number;
+  changeFor?: number;
+  fcmToken?: string;
   createdAt?: any;
   updatedAt?: any;
-  isEncrypted?: boolean;
 }
 
-// ── Status Config ──
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  approved: { label: 'Aprovado', color: 'text-green-700', bg: 'bg-green-100' },
-  pending: { label: 'Pendente', color: 'text-amber-700', bg: 'bg-amber-100' },
-  processing: { label: 'Processando', color: 'text-blue-700', bg: 'bg-blue-100' },
-  rejected: { label: 'Rejeitado', color: 'text-red-700', bg: 'bg-red-100' },
-  cancelled: { label: 'Cancelado', color: 'text-gray-700', bg: 'bg-gray-100' },
-  refunded: { label: 'Reembolsado', color: 'text-purple-700', bg: 'bg-purple-100' },
-  charged_back: { label: 'Chargeback', color: 'text-red-700', bg: 'bg-red-100' },
-  in_process: { label: 'Em análise', color: 'text-blue-700', bg: 'bg-blue-100' },
+  pending: { label: 'Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100' },
+  preparing: { label: 'Em Separação', color: 'text-blue-700', bg: 'bg-blue-100' },
+  shipped: { label: 'Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100' },
+  delivered: { label: 'Entregue', color: 'text-green-700', bg: 'bg-green-100' },
+  cancelled: { label: 'Cancelado', color: 'text-red-700', bg: 'bg-red-100' },
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  pix: '📱 Pix',
-  credit_card: '💳 Cartão de Crédito',
-  debit_card: '💳 Cartão de Débito',
+  pix_presencial: '📱 Pix na Entrega',
+  dinheiro: '💵 Dinheiro',
+  maquininha: '💳 Crédito/Débito',
+  ticket: '🎫 Ticket (Alim./Refeição)',
 };
 
 const FILTER_OPTIONS = [
   { id: 'all', label: 'Todos' },
-  { id: 'approved', label: 'Aprovados' },
-  { id: 'pending', label: 'Pendentes' },
-  { id: 'processing', label: 'Processando' },
-  { id: 'rejected', label: 'Rejeitados' },
+  { id: 'pending', label: 'Novos Pedidos' },
+  { id: 'preparing', label: 'Em Separação' },
+  { id: 'shipped', label: 'Em Rota' },
+  { id: 'delivered', label: 'Entregues' },
 ];
 
 // ── Beep sonoro usando Web Audio API (sem arquivo externo) ──
@@ -148,19 +145,14 @@ const OrderSkeleton: React.FC = () => (
   </div>
 );
 
-// ── Componente de Card de Pedido ──
 const OrderCard: React.FC<{ 
   order: Order; 
-  decryptedData?: any;
-  isDecrypting?: boolean;
-  onDecrypt: (id: string) => void;
-  onPrint: (order: Order, decData?: any) => void;
+  onPrint: (order: Order) => void;
+  onUpdateStatus: (id: string, newStatus: string) => void;
 }> = ({
   order,
-  decryptedData,
-  isDecrypting,
-  onDecrypt,
   onPrint,
+  onUpdateStatus,
 }) => {
   const status = STATUS_CONFIG[order.paymentStatus] || {
     label: order.paymentStatus,
@@ -168,11 +160,8 @@ const OrderCard: React.FC<{
     bg: 'bg-gray-100',
   };
 
-  const isSecured = order.isEncrypted && !decryptedData;
-
-  const customerName = decryptedData ? decryptedData.customerName : (isSecured ? '*** DADO PROTEGIDO ***' : order.customerName);
-  const customerEmail = decryptedData ? decryptedData.customerEmail : (isSecured ? '***' : order.customerEmail);
-  const deliveryAddress = decryptedData ? decryptedData.deliveryAddress : (isSecured ? '*** ENDEREÇO PROTEGIDO ***' : order.deliveryAddress);
+  const customerName = order.customerName;
+  const deliveryAddress = order.deliveryAddress;
 
   return (
     <div className="bg-white rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow overflow-hidden">
@@ -189,26 +178,14 @@ const OrderCard: React.FC<{
             <Clock size={12} />
             {formatDate(order.createdAt)}
           </span>
-          {isSecured ? (
-            <button
-              onClick={() => onDecrypt(order.id)}
-              disabled={isDecrypting}
-              className="px-2 py-1 bg-primary text-white text-[10px] font-bold rounded hover:bg-primary-dark transition-colors flex items-center gap-1 disabled:opacity-50"
-              title="Descriptografar PII"
-            >
-              <Lock size={12} />
-              {isDecrypting ? 'Lendo...' : 'Descriptografar'}
-            </button>
-          ) : (
-            <button
-              onClick={() => onPrint(order, decryptedData)}
-              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
-              aria-label="Imprimir pedido"
-              title="Imprimir"
-            >
-              <Printer size={14} className="text-muted" />
-            </button>
-          )}
+          <button
+            onClick={() => onPrint(order)}
+            className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+            aria-label="Imprimir pedido"
+            title="Imprimir"
+          >
+            <Printer size={14} className="text-muted" />
+          </button>
           <button
             onClick={async () => {
               if (window.confirm('Tem certeza que deseja EXCLUIR permanentemente este pedido?')) {
@@ -228,6 +205,19 @@ const OrderCard: React.FC<{
           >
             <Trash2 size={14} className="text-red-500" />
           </button>
+          {/* Botão de Status via WhatsApp */}
+          <button
+            onClick={() => {
+              const statusMsg = `Olá *${order.customerName}*! Seu pedido *#${order.id.slice(0, 8)}* teve o status atualizado para: *${STATUS_CONFIG[order.paymentStatus]?.label || order.paymentStatus}*.`;
+              const phone = order.customerPhone.startsWith('55') ? order.customerPhone : `55${order.customerPhone}`;
+              window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(statusMsg)}`, '_blank');
+            }}
+            className="p-1.5 hover:bg-green-100 rounded-lg transition-colors"
+            aria-label="Notificar via WhatsApp"
+            title="Avisar no WhatsApp"
+          >
+            <MessageCircle size={14} className="text-green-600" />
+          </button>
         </div>
       </div>
 
@@ -237,12 +227,9 @@ const OrderCard: React.FC<{
         <div className="flex items-start gap-2 text-sm">
           <User size={14} className="text-muted mt-0.5 shrink-0" />
           <div>
-            <span className={`font-semibold ${isSecured ? 'text-primary' : 'text-text'}`}>
+            <span className="font-semibold text-text">
               {customerName}
             </span>
-            {customerEmail && (
-              <span className="text-muted text-xs ml-2">{customerEmail}</span>
-            )}
           </div>
         </div>
 
@@ -250,7 +237,7 @@ const OrderCard: React.FC<{
         {deliveryAddress && (
           <div className="flex items-start gap-2 text-sm">
             <MapPin size={14} className="text-muted mt-0.5 shrink-0" />
-            <span className={`text-xs ${isSecured ? 'text-primary font-medium' : 'text-muted'}`}>
+            <span className="text-xs text-muted">
               {deliveryAddress}
             </span>
           </div>
@@ -261,6 +248,7 @@ const OrderCard: React.FC<{
           <CreditCard size={14} className="text-muted shrink-0" />
           <span className="text-xs text-muted">
             {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}
+            {order.changeFor && ` (Troco p/ R$ ${order.changeFor.toFixed(2).replace('.', ',')})`}
           </span>
         </div>
 
@@ -295,6 +283,30 @@ const OrderCard: React.FC<{
             <span>{formatCurrency(order.total)}</span>
           </div>
         </div>
+
+        {/* Ações de Status */}
+        <div className="border-t border-gray-200 pt-3 mt-3 flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+          {order.paymentStatus === 'pending' && (
+            <button onClick={() => onUpdateStatus(order.id, 'preparing')} className="px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg hover:bg-blue-200 whitespace-nowrap">
+              Em Separação
+            </button>
+          )}
+          {(order.paymentStatus === 'pending' || order.paymentStatus === 'preparing') && (
+            <button onClick={() => onUpdateStatus(order.id, 'shipped')} className="px-3 py-1.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-lg hover:bg-purple-200 whitespace-nowrap">
+              Saiu p/ Entrega
+            </button>
+          )}
+          {order.paymentStatus === 'shipped' && (
+            <button onClick={() => onUpdateStatus(order.id, 'delivered')} className="px-3 py-1.5 bg-green-100 text-green-700 text-xs font-bold rounded-lg hover:bg-green-200 whitespace-nowrap">
+              Entregue
+            </button>
+          )}
+          {order.paymentStatus !== 'cancelled' && order.paymentStatus !== 'delivered' && (
+            <button onClick={() => onUpdateStatus(order.id, 'cancelled')} className="px-3 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-lg hover:bg-red-200 whitespace-nowrap">
+              Cancelar
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -309,50 +321,53 @@ export const OrderManager: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [decryptedOrders, setDecryptedOrders] = useState<Record<string, any>>({});
-  const [decryptingIds, setDecryptingIds] = useState<Record<string, boolean>>({});
-
   // Rastreia IDs conhecidos para detectar novos pedidos
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
-  // ── Decrypt Logic ──
-  const handleDecrypt = async (orderId: string) => {
-    setDecryptingIds(prev => ({ ...prev, [orderId]: true }));
+  // ── Ações de Status ──
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Sessão expirada. Faça login novamente.');
-
-      const response = await fetch('/api/admin/decrypt-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ orderId })
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'pedidos', orderId), {
+        paymentStatus: newStatus,
+        updatedAt: new Date()
       });
 
-      const data = await response.json();
-      if (data.success) {
-        setDecryptedOrders(prev => ({ ...prev, [orderId]: data.decryptedData }));
-      } else {
-        alert(data.error || 'Erro ao descriptografar');
+      // --- DISPARAR WEB PUSH (SEC-01) ---
+      const order = orders.find(o => o.id === orderId);
+      if (order?.fcmToken) {
+        const label = STATUS_CONFIG[newStatus]?.label || newStatus;
+        const idToken = await auth.currentUser?.getIdToken();
+        
+        fetch('/api/notify', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            fcmToken: order.fcmToken,
+            title: 'Sagrada Família: Pedido Atualizado!',
+            body: `Seu pedido #${order.id.slice(0, 8)} agora está: ${label}.`,
+            link: '/'
+          })
+        }).catch(err => console.error('Falha ao enviar push:', err));
       }
-    } catch (err: any) {
-      alert(err.message || 'Erro de conexão.');
-    } finally {
-      setDecryptingIds(prev => ({ ...prev, [orderId]: false }));
+
+    } catch (err) {
+      alert('Erro ao atualizar status do pedido.');
+      console.error(err);
     }
   };
 
   // ── Impressão Térmica ──
-  const handlePrint = useCallback((order: Order, decData?: any) => {
+  const handlePrint = useCallback((order: Order) => {
     const status = STATUS_CONFIG[order.paymentStatus] || { label: order.paymentStatus };
     
-    // Usa os dados descriptografados se existirem
-    const customerName = decData ? decData.customerName : order.customerName;
-    const deliveryAddress = decData ? decData.deliveryAddress : order.deliveryAddress;
-    const cep = decData ? decData.cep : order.cep;
+    const customerName = order.customerName;
+    const deliveryAddress = order.deliveryAddress;
+    const cep = order.cep;
 
     const printWindow = window.open('', '_blank', 'width=302,height=600');
     if (!printWindow) return;
@@ -437,25 +452,24 @@ export const OrderManager: React.FC = () => {
             deliveryFee: data.deliveryFee || 0,
             total: data.total || 0,
             customerName: data.customerName || 'Cliente',
-            customerEmail: data.customerEmail || '',
-            customerCpf: data.customerCpf || '',
+            customerPhone: data.customerPhone || '',
             deliveryAddress: data.deliveryAddress || '',
             cep: data.cep || '',
             storeId: data.storeId || '',
             paymentMethod: data.paymentMethod || '',
-            paymentStatus: data.paymentStatus || 'processing',
-            mpPaymentId: data.mpPaymentId,
-            isEncrypted: data.isEncrypted || false,
+            paymentStatus: data.paymentStatus || 'pending',
+            changeFor: data.changeFor,
+            fcmToken: data.fcmToken,
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
           };
         });
 
-        // Detectar novos pedidos aprovados para notificação sonora
+        // Detectar novos pedidos para notificação sonora
         if (!isFirstLoad.current && soundEnabled) {
           for (const order of loadedOrders) {
             if (
-              order.paymentStatus === 'approved' &&
+              order.paymentStatus === 'pending' &&
               !knownOrderIds.current.has(order.id)
             ) {
               playNotificationBeep();
@@ -498,10 +512,10 @@ export const OrderManager: React.FC = () => {
   // Contadores por status
   const counts = {
     all: orders.length,
-    approved: orders.filter((o) => o.paymentStatus === 'approved').length,
     pending: orders.filter((o) => o.paymentStatus === 'pending').length,
-    processing: orders.filter((o) => o.paymentStatus === 'processing').length,
-    rejected: orders.filter((o) => o.paymentStatus === 'rejected').length,
+    preparing: orders.filter((o) => o.paymentStatus === 'preparing').length,
+    shipped: orders.filter((o) => o.paymentStatus === 'shipped').length,
+    delivered: orders.filter((o) => o.paymentStatus === 'delivered').length,
   };
 
   return (
@@ -602,10 +616,8 @@ export const OrderManager: React.FC = () => {
             <OrderCard 
               key={order.id} 
               order={order} 
-              decryptedData={decryptedOrders[order.id]}
-              isDecrypting={decryptingIds[order.id]}
-              onDecrypt={handleDecrypt}
               onPrint={handlePrint} 
+              onUpdateStatus={handleUpdateStatus}
             />
           ))}
         </div>

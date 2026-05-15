@@ -22,7 +22,7 @@ export function generateWhatsAppLink(
   storeLabel: string,
   storePhone: string,
   deliveryFee: number = 0,
-  paymentLocation: 'online' | 'delivery' = 'delivery'
+  changeFor?: string
 ): string | null {
   if (!storePhone) return null;
 
@@ -30,7 +30,7 @@ export function generateWhatsAppLink(
   const total = subtotal + deliveryFee;
 
   let message = `${greeting}\n\n`;
-  message += `📦 *NOVO PEDIDO — ${storeLabel}*\n`;
+  message += `🛒 *NOVO PEDIDO - ${storeLabel}*\n`;
   message += `--------------------------------\n\n`;
 
   items.forEach((item) => {
@@ -40,23 +40,21 @@ export function generateWhatsAppLink(
   });
 
   message += `--------------------------------\n`;
-  message += `💵 Subtotal: R$ ${subtotal.toFixed(2).replace('.', ',')}\n`;
+  message += `💵 *Subtotal:* R$ ${subtotal.toFixed(2).replace('.', ',')}\n`;
 
   if (deliveryFee > 0) {
-    message += `🚚 Taxa de entrega: R$ ${deliveryFee.toFixed(2).replace('.', ',')}\n`;
+    message += `🛵 *Taxa de entrega:* R$ ${deliveryFee.toFixed(2).replace('.', ',')}\n`;
   }
 
-  const paymentText = paymentLocation === 'online' ? `${paymentMethod} (Online)` : `${paymentMethod} (Na Entrega)`;
-
-  message += `💰 *TOTAL: R$ ${total.toFixed(2).replace('.', ',')}*\n\n`;
+  message += `💰 *TOTAL:* R$ ${total.toFixed(2).replace('.', ',')}\n\n`;
   message += `👤 *CLIENTE:* ${customerName}\n`;
-  message += `📍 *ENDEREÇO:* ${deliveryAddress}\n`;
-  message += `💳 *PAGAMENTO:* ${paymentText}\n`;
+  message += `📍 *ENDERE\u00C7O:* ${deliveryAddress}\n`;
+  message += `💳 *PAGAMENTO:* ${paymentMethod} na Entrega\n`;
 
-  if (paymentMethod === 'Pix' && paymentLocation === 'online') {
-    message += `\n📸 *Por favor, envie o comprovante do Pix aqui nesta conversa.*\n`;
+  if (paymentMethod === 'Dinheiro' && changeFor) {
+    message += `🪙 *TROCO PARA:* R$ ${changeFor}\n`;
   }
 
   const encoded = encodeURIComponent(message);
-  return `https://wa.me/${storePhone}?text=${encoded}`;
+  return `https://api.whatsapp.com/send?phone=${storePhone}&text=${encoded}`;
 }
