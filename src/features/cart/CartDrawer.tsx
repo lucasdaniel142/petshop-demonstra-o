@@ -8,13 +8,24 @@ import { STORE_COORDINATES, calculateDeliveryFee, DELIVERY_BASE_FEE, DELIVERY_MA
 import { isStoreOpen, getStoreHoursLabel } from '../../shared/config/businessHours';
 import type { StoreId } from '../../shared/types';
 import { Link } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
+import { serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
 import { requestNotificationToken } from '../../shared/lib/notifications';
+import { sanitizeCustomerText } from '../../shared/utils/sanitizeCustomerInput';
 
 interface CartDrawerProps {
   selectedStoreLabel: string;
   selectedStoreId: StoreId;
+}
+
+async function parseJsonBody(response: Response): Promise<Record<string, unknown>> {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, selectedStoreId }) => {
@@ -149,10 +160,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     if (notificationsEnabled && !fcmToken) {
       finalFcmToken = await requestNotificationToken();
       if (finalFcmToken) {
-        await setDoc(doc(db, 'fcmTokens', finalFcmToken), {
-          lastUsed: serverTimestamp(),
-          customerName: customerName.trim()
-        });
+        try {
+          await setDoc(doc(db, 'fcmTokens', finalFcmToken), {
+            lastUsed: serverTimestamp(),
+            customerName: sanitizeCustomerText(customerName, 100),
+          });
+        } catch (fcmErr) {
+          if (import.meta.env.DEV) {
+            console.error('Erro ao registrar token de notificação:', fcmErr);
+          }
+          /* Checkout segue sem push; usuário já pode ter permissão negada ou rules */
+        }
       }
     }
 
@@ -165,9 +183,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       }
     }
 
-    const sanitize = (str: string) => str.trim().replace(/[<>{}]/g, '');
-    const sanitizedName = sanitize(customerName);
-    const sanitizedAddress = sanitize(deliveryAddress);
+    const sanitizedName = sanitizeCustomerText(customerName, 100);
+    const sanitizedAddress = sanitizeCustomerText(deliveryAddress, 500);
 
     setIsSubmitting(true);
     setCheckoutError(null);
@@ -198,12 +215,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         body: JSON.stringify(checkoutPayload)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro na API de checkout');
+      const responseText = await response.text();
+      let body: any = {};
+      try {
+        body = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Resposta do servidor não é JSON:', responseText);
       }
 
-      const { orderId, subtotal: serverSubtotal, deliveryFee: serverDeliveryFee } = await response.json();
+      if (!response.ok) {
+        const fallback =
+          response.status === 404
+            ? 'API de checkout não encontrada.'
+            : typeof body.error === 'string'
+              ? body.error
+              : `Erro do Servidor (HTTP ${response.status}): ${responseText.slice(0, 100)}...`;
+        throw new Error(fallback);
+      }
+
+      const orderId = body.orderId as string | undefined;
+      const serverSubtotal = body.subtotal as number | undefined;
+      const serverDeliveryFee = body.deliveryFee as number | undefined;
+
+      if (orderId == null || serverSubtotal == null || serverDeliveryFee == null) {
+        throw new Error('Resposta inválida do servidor de checkout.');
+      }
 
       const storePhone = STORE_WHATSAPP_NUMBERS[selectedStoreId];
       const link = generateWhatsAppLink(
@@ -300,10 +336,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                     </div>
                     <div className="flex items-center justify-between mt-[4px]">
                       <span className="text-[13px] text-primary font-[600]">R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2).replace('.', ',')}</span>
-                      <div className="flex items-center bg-primary rounded-[4px] text-white h-[24px] px-[2px]" role="group">
-                        <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-[20px] h-[20px] flex items-center justify-center hover:bg-white/20 rounded-[2px] transition-colors text-[14px]">−</button>
-                        <span className="w-[20px] text-center font-semibold text-[12px]">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-[20px] h-[20px] flex items-center justify-center hover:bg-white/20 rounded-[2px] transition-colors text-[14px]">+</button>
+                      <div className="flex items-center bg-primary rounded-xl text-white min-h-11 px-1 gap-0.5" role="group" aria-label="Quantidade">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="min-w-11 min-h-11 flex items-center justify-center rounded-lg hover:bg-white/20 transition-colors text-base"
+                          aria-label="Diminuir quantidade"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-8 text-center font-semibold text-sm tabular-nums">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="min-w-11 min-h-11 flex items-center justify-center rounded-lg hover:bg-white/20 transition-colors text-base"
+                          aria-label="Aumentar quantidade"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -447,9 +497,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
             </div>
 
             <div className="flex flex-col gap-2 border-t border-border p-6 shrink-0 bg-white">
-              <button onClick={handleConfirmOrder} disabled={!privacyAccepted || isSubmitting} className="w-full rounded-xl bg-accent text-on-accent py-3.5 font-extrabold shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark flex items-center justify-center gap-2 disabled:opacity-50">
-                {isSubmitting ? <Loader2 size={18} className="animate-spin text-on-accent" /> : <MessageCircle size={18} className="text-on-accent shrink-0" strokeWidth={2.25} />}
-                Confirmar Pedido via WhatsApp 🚀
+              <button
+                type="button"
+                onClick={handleConfirmOrder}
+                disabled={!privacyAccepted || isSubmitting}
+                aria-busy={isSubmitting}
+                aria-disabled={!privacyAccepted || isSubmitting}
+                className="w-full rounded-xl bg-accent text-on-accent py-3.5 font-extrabold shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-on-accent shrink-0" aria-hidden />
+                    <span>Enviando pedido…</span>
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle size={18} className="text-on-accent shrink-0" strokeWidth={2.25} aria-hidden />
+                    <span>Confirmar pedido via WhatsApp</span>
+                  </>
+                )}
               </button>
               <button onClick={handleCloseModal} disabled={isSubmitting} className="w-full rounded-[10px] border border-border text-text py-3 font-[600] hover:bg-[#F8F8F8] transition-colors">Voltar</button>
             </div>

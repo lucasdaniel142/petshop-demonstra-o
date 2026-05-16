@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getMessaging, isSupported } from 'firebase/messaging';
 
 const requireEnv = (key: string): string => {
@@ -43,3 +43,12 @@ isSupported().then((supported) => {
 });
 
 export const getFirebaseMessaging = () => messagingInstance;
+
+/**
+ * Garante `request.auth != null` nas regras do Firestore (ex.: `fcmTokens`)
+ * sem exigir login com e-mail. Ative "Anonymous" em Firebase Console → Authentication → Sign-in method.
+ */
+export async function ensureAnonymousAuth(): Promise<void> {
+  if (auth.currentUser) return;
+  await signInAnonymously(auth);
+}

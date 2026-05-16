@@ -28,17 +28,9 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         icons: [
-          {
-            src: 'icons/icon sagrada familia.webp',
-            sizes: '512x512',
-            type: 'image/webp'
-          },
-          {
-            src: 'icons/icon sagrada familia.webp',
-            sizes: '512x512',
-            type: 'image/webp',
-            purpose: 'any maskable'
-          }
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ]
       }
     })
@@ -56,6 +48,13 @@ export default defineConfig({
     port: 3000,
     host: true, // Era '0.0.0.0' — 'true' é equivalente mas resolve mais rápido
     hmr: process.env.DISABLE_HMR !== 'true',
+    // Rotas Vercel `/api/*` não existem no Vite puro; em dev o script `dev:api` sobe o Express local.
+    proxy: {
+      '/api': {
+        target: `http://127.0.0.1:${process.env.DEV_API_PORT || '8787'}`,
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     // Alerta se qualquer chunk ultrapassar 500KB

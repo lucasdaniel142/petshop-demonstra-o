@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  type QueryDocumentSnapshot,
+  type DocumentData,
+} from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
 import { Header } from '../../shared/components/Header';
 import { CategoryNav } from './CategoryNav';
@@ -9,6 +18,23 @@ import { NotificationBanner } from '../../shared/components/NotificationBanner';
 import { useCart } from '../../shared/hooks/useCart';
 import type { FirestoreProduct, StoreId } from '../../shared/types';
 import { STORES, STORE_IDS, CATEGORY_OPTIONS, CATEGORY_KEYWORDS } from '../../shared/utils/constants';
+import { Loader2 } from 'lucide-react';
+
+/** Tamanho da página na vitrine (Firestore). Índice: coleção `produtos`, campo `nome` ascendente — criado automaticamente. */
+const PAGE_SIZE = 24;
+
+function mapProductDoc(docSnap: QueryDocumentSnapshot<DocumentData>): FirestoreProduct {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    nome: data.nome || data.name || 'Produto sem nome',
+    categoria: data.categoria || data.category || 'Geral',
+    imageUrl: data.imageUrl || data.imagem || '',
+    unit: data.unit || 'un',
+    precos: data.precos || {},
+    freteGratis: data.freteGratis === true,
+  };
+}
 
 const ProductSkeleton: React.FC = () => (
   <div className="bg-white rounded-2xl shadow-sm p-6 lg:p-8 flex flex-col h-full animate-pulse border-0">
@@ -24,9 +50,15 @@ export const Home: React.FC = () => {
   const [selectedStore, setSelectedStore] = useState<StoreId>(STORE_IDS[0]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { toggleCart, clearCart } = useCart();
+
+  const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const hasMoreRef = useRef(true);
+  const loadingMoreRef = useRef(false);
 
   const clearCartRef = useRef(clearCart);
   clearCartRef.current = clearCart;
@@ -38,27 +70,40 @@ export const Home: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const loadProducts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchProductPage = useCallback(async (reset: boolean) => {
+    if (reset) {
+      setLoading(true);
+      setError(null);
+      setProducts([]);
+      lastDocRef.current = null;
+      setHasMore(true);
+      hasMoreRef.current = true;
+      loadingMoreRef.current = false;
+    } else {
+      if (!hasMoreRef.current || loadingMoreRef.current) return;
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+    }
+
     try {
-      const q = query(collection(db, 'produtos'), orderBy('nome', 'asc'));
+      const base = collection(db, 'produtos');
+      let q = query(base, orderBy('nome', 'asc'), limit(PAGE_SIZE));
+      if (!reset && lastDocRef.current) {
+        q = query(base, orderBy('nome', 'asc'), startAfter(lastDocRef.current), limit(PAGE_SIZE));
+      }
+
       const snapshot = await getDocs(q);
+      const docs = snapshot.docs;
+      const page = docs.map(mapProductDoc);
 
-      const loadedProducts: FirestoreProduct[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          nome: data.nome || data.name || 'Produto sem nome',
-          categoria: data.categoria || data.category || 'Geral',
-          imageUrl: data.imageUrl || data.imagem || '',
-          unit: data.unit || 'un',
-          precos: data.precos || {},
-          freteGratis: data.freteGratis === true,
-        };
-      });
+      if (docs.length > 0) {
+        lastDocRef.current = docs[docs.length - 1]!;
+      }
 
-      setProducts(loadedProducts);
+      const nextHasMore = docs.length === PAGE_SIZE;
+      hasMoreRef.current = nextHasMore;
+      setHasMore(nextHasMore);
+      setProducts((prev) => (reset ? page : [...prev, ...page]));
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Erro ao carregar produtos:', err);
@@ -66,12 +111,18 @@ export const Home: React.FC = () => {
       setError('Não foi possível carregar os produtos. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    fetchProductPage(true);
+  }, [fetchProductPage]);
+
+  const reloadCatalog = useCallback(() => {
+    fetchProductPage(true);
+  }, [fetchProductPage]);
 
   useEffect(() => {
     clearCartRef.current();
@@ -105,8 +156,14 @@ export const Home: React.FC = () => {
 
   const storeLabel = STORES.find((s) => s.id === selectedStore)?.label ?? 'Loja';
 
+  const loadMoreHint =
+    availableProducts.length === 0 &&
+    hasMore &&
+    !loading &&
+    products.length > 0;
+
   const renderContent = () => {
-    if (loading) {
+    if (loading && products.length === 0) {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[20px]">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -121,7 +178,8 @@ export const Home: React.FC = () => {
         <div className="rounded-[12px] bg-red-50 border border-red-200 p-10 lg:p-12 text-center">
           <p className="text-red-700 font-medium mb-3">{error}</p>
           <button
-            onClick={loadProducts}
+            type="button"
+            onClick={reloadCatalog}
             className="px-6 py-3 bg-red-600 text-white rounded-[8px] font-extrabold text-sm hover:bg-red-700 transition-colors shadow-sm"
           >
             Tentar Novamente
@@ -130,7 +188,7 @@ export const Home: React.FC = () => {
       );
     }
 
-    if (availableProducts.length === 0) {
+    if (availableProducts.length === 0 && !hasMore) {
       return (
         <div className="rounded-2xl bg-white shadow-sm border-0 p-10 lg:p-12 text-center text-muted">
           {searchQuery
@@ -141,27 +199,70 @@ export const Home: React.FC = () => {
     }
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[20px]">
-        {availableProducts.map((product) => {
-          const storePrice = product.precos?.[selectedStore];
-          return (
-            <ProductCard
-              key={product.id}
-              product={{
-                id: product.id,
-                name: product.nome,
-                category: product.categoria,
-                imageUrl: product.imageUrl,
-                unit: product.unit,
-                price: storePrice?.valor ?? 0,
-                storeId: selectedStore,
-                freteGratis: product.freteGratis === true,
-              }}
-              storePrice={storePrice}
-              storeId={selectedStore}
-            />
-          );
-        })}
+      <div className="flex flex-col gap-8">
+        {loadMoreHint && (
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-6 text-center text-sm text-amber-900">
+            <p className="font-medium mb-3">
+              Nenhum produto corresponde aos filtros nos itens já carregados. Carregue mais da lista ou ajuste busca/categoria.
+            </p>
+            <button
+              type="button"
+              onClick={() => fetchProductPage(false)}
+              disabled={loadingMore}
+              className="inline-flex items-center justify-center gap-2 min-h-11 px-6 rounded-xl bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 disabled:opacity-60"
+            >
+              {loadingMore ? <Loader2 className="animate-spin" size={18} aria-hidden /> : null}
+              Carregar mais produtos
+            </button>
+          </div>
+        )}
+
+        {availableProducts.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[20px]">
+            {availableProducts.map((product, index) => {
+              const storePrice = product.precos?.[selectedStore];
+              return (
+                <ProductCard
+                  key={product.id}
+                  product={{
+                    id: product.id,
+                    name: product.nome,
+                    category: product.categoria,
+                    imageUrl: product.imageUrl,
+                    unit: product.unit,
+                    price: storePrice?.valor ?? 0,
+                    storeId: selectedStore,
+                    freteGratis: product.freteGratis === true,
+                  }}
+                  storePrice={storePrice}
+                  storeId={selectedStore}
+                  imageLoading={index < 6 ? 'eager' : 'lazy'}
+                  imageFetchPriority={index === 0 ? 'high' : 'auto'}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {hasMore && !loading && products.length > 0 && (
+          <div className="flex justify-center pb-2">
+            <button
+              type="button"
+              onClick={() => fetchProductPage(false)}
+              disabled={loadingMore}
+              className="inline-flex items-center justify-center gap-2 min-h-12 px-8 rounded-xl border-2 border-primary text-primary font-extrabold text-sm hover:bg-primary/5 disabled:opacity-50 transition-colors"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="animate-spin shrink-0" size={20} aria-hidden />
+                  Carregando…
+                </>
+              ) : (
+                <>Carregar mais produtos</>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     );
   };

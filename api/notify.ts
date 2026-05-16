@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminMessaging, adminAuth, adminDb } from './_utils/firebaseAdmin';
+import { getAdminMessaging, getAdminAuth, getAdminDb } from './_utils/firebaseAdmin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // --- 1. CORS CONFIGURATION ---
@@ -26,6 +26,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
+    const adminMessaging = getAdminMessaging();
+
     // --- 2. AUTHENTICATION (CRÍTICO: SEC-01) ---
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
@@ -74,6 +78,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('[API Notify] Erro:', error);
+    
+    if (error.message?.includes('CONFIG_ERROR')) {
+      return res.status(500).json({ error: error.message });
+    }
+
     return res.status(500).json({ error: error.message || 'Erro interno no servidor' });
   }
 }

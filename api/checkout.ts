@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminDb } from './_utils/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getAdminDb } from './_utils/firebaseAdmin';
 
 // Configurações de entrega duplicadas para o backend (Segurança: Single Source of Truth em produção viria de um DB de config)
 const DELIVERY_BASE_FEE = parseFloat(process.env.VITE_DELIVERY_BASE_FEE || '5.00');
@@ -8,12 +8,22 @@ const DELIVERY_BASE_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_BASE_RADIUS
 const DELIVERY_PER_KM_FEE = parseFloat(process.env.VITE_DELIVERY_PER_KM_FEE || '1.50');
 const DELIVERY_MAX_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_MAX_RADIUS_KM || '15');
 
+function sanitizeCustomerText(str: unknown, maxLen: number): string {
+  if (typeof str !== 'string') return '';
+  return str
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .slice(0, maxLen);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    const adminDb = getAdminDb(); // Garante inicialização
     const { 
       items, 
       customerName, 
@@ -86,16 +96,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const total = subtotal + deliveryFee;
 
+    const safeName = sanitizeCustomerText(customerName, 100);
+    const safeAddress = sanitizeCustomerText(deliveryAddress, 500);
+    const cleanPhone = String(customerPhone || '').replace(/\D/g, '');
+    const cleanCep = String(cep || '').replace(/\D/g, '');
+
+    if (!safeName || !safeAddress || cleanPhone.length < 10) {
+      return res.status(400).json({ error: 'Dados do cliente inválidos ou incompletos' });
+    }
+
+    if (cleanCep.length !== 8) {
+      return res.status(400).json({ error: 'CEP inválido' });
+    }
+
     // 4. Gravação Segura no Firestore
     const orderData = {
       items: validatedItems,
       subtotal: Math.round(subtotal * 100) / 100,
       deliveryFee: Math.round(deliveryFee * 100) / 100,
       total: Math.round(total * 100) / 100,
-      customerName: customerName.trim().slice(0, 100),
-      customerPhone: customerPhone.replace(/\D/g, ''),
-      deliveryAddress: deliveryAddress.trim(),
-      cep: cep.replace(/\D/g, ''),
+      customerName: safeName,
+      customerPhone: cleanPhone,
+      deliveryAddress: safeAddress,
+      cep: cleanCep,
       storeId,
       paymentMethod: paymentMethod,
       paymentStatus: 'pending',
@@ -117,7 +140,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error: any) {
-    console.error('[API Checkout] Erro:', error);
-    return res.status(500).json({ error: 'Erro interno ao processar pedido' });
+    console.error('[API Checkout] Erro Crítico:', error);
+    
+    // Retornamos o erro detalhado para facilitar o debug em desenvolvimento
+    return res.status(500).json({ 
+      error: error.message || 'Erro interno desconhecido',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }

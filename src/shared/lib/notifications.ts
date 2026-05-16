@@ -1,10 +1,12 @@
 import { getToken } from 'firebase/messaging';
-import { getFirebaseMessaging } from './firebase';
+import { ensureAnonymousAuth, getFirebaseMessaging } from './firebase';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
 export async function requestNotificationToken(): Promise<string | null> {
   try {
+    await ensureAnonymousAuth();
+
     if (!('Notification' in window)) return null;
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return null;

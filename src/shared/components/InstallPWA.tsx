@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, Share, PlusSquare } from 'lucide-react';
 
+const DISMISS_KEY = 'pwa-install-dismissed';
+const VISITS_KEY = 'pwa-visit-count';
+
 export const InstallPWA: React.FC = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isIosGuide, setIsIosGuide] = useState(false);
 
@@ -10,7 +13,22 @@ export const InstallPWA: React.FC = () => {
     const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
 
-    const handler = (e: any) => {
+    if (isInStandaloneMode) {
+      setIsVisible(false);
+      return;
+    }
+
+    try {
+      if (localStorage.getItem(DISMISS_KEY) === '1') return;
+
+      const visits = Number(localStorage.getItem(VISITS_KEY) || '0') + 1;
+      localStorage.setItem(VISITS_KEY, String(visits));
+      if (visits < 2) return;
+    } catch {
+      /* modo privado / storage indisponível */
+    }
+
+    const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsVisible(true);
@@ -18,26 +36,40 @@ export const InstallPWA: React.FC = () => {
 
     window.addEventListener('beforeinstallprompt', handler);
 
-    if (isIos && !isInStandaloneMode) {
-      const timer = setTimeout(() => setIsVisible(true), 3000);
-      setIsIosGuide(true);
-      return () => clearTimeout(timer);
+    let iosTimer: ReturnType<typeof setTimeout> | undefined;
+    if (isIos) {
+      iosTimer = setTimeout(() => {
+        setIsIosGuide(true);
+        setIsVisible(true);
+      }, 8000);
     }
 
-    if (isInStandaloneMode) {
-      setIsVisible(false);
-    }
-
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      if (iosTimer) clearTimeout(iosTimer);
+    };
   }, []);
 
   const handleInstallClick = async () => {
     if (isIosGuide) return;
-    if (!deferredPrompt) return;
+    const promptEvent = deferredPrompt as unknown as {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: string }>;
+    } | null;
+    if (!promptEvent?.prompt) return;
 
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
+    promptEvent.prompt();
+    await promptEvent.userChoice;
     setDeferredPrompt(null);
+    setIsVisible(false);
+  };
+
+  const handleDismiss = () => {
+    try {
+      localStorage.setItem(DISMISS_KEY, '1');
+    } catch {
+      /* ignore */
+    }
     setIsVisible(false);
   };
 
@@ -53,23 +85,30 @@ export const InstallPWA: React.FC = () => {
             </div>
             <div>
               <h3 className="font-bold text-[14px]">
-                {isIosGuide ? 'Instalar no iPhone' : 'Instalar Aplicativo'}
+                {isIosGuide ? 'Instalar no iPhone' : 'Instalar aplicativo'}
               </h3>
               <p className="text-[11px] opacity-90">
-                {isIosGuide 
-                  ? 'Acesse a loja como um aplicativo nativo.' 
-                  : 'Acesse a loja mais rápido direto da sua tela inicial!'}
+                {isIosGuide
+                  ? 'Acesse a loja como um app na tela inicial.'
+                  : 'Abra a loja mais rápido pelo ícone na tela inicial.'}
               </p>
             </div>
           </div>
-          <button onClick={() => setIsVisible(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors"><X size={18} /></button>
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="p-2 min-w-11 min-h-11 flex items-center justify-center hover:bg-white/10 rounded-lg transition-colors"
+            aria-label="Dispensar instalação do app"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {isIosGuide ? (
           <div className="bg-white/10 rounded-xl p-3 space-y-2 border border-white/10">
             <p className="text-[11px] font-medium flex items-center gap-2">
               <span className="bg-white text-primary w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
-              Clique em <span className="font-bold flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded">Compartilhar <Share size={12} /></span>.
+              Toque em <span className="font-bold flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded">Compartilhar <Share size={12} /></span>.
             </p>
             <p className="text-[11px] font-medium flex items-center gap-2">
               <span className="bg-white text-primary w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
@@ -77,7 +116,13 @@ export const InstallPWA: React.FC = () => {
             </p>
           </div>
         ) : (
-          <button onClick={handleInstallClick} className="w-full bg-white text-primary py-2.5 rounded-xl font-[800] text-[13px] hover:bg-gray-100 shadow-sm">INSTALAR AGORA</button>
+          <button
+            type="button"
+            onClick={handleInstallClick}
+            className="w-full min-h-11 bg-white text-primary py-2.5 rounded-xl font-[800] text-[13px] hover:bg-gray-100 shadow-sm"
+          >
+            Instalar agora
+          </button>
         )}
       </div>
     </div>

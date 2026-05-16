@@ -72,6 +72,15 @@ function playNotificationBeep() {
   }
 }
 
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatCurrency(value: number): string {
   return `R$ ${value.toFixed(2).replace('.', ',')}`;
 }
@@ -219,25 +228,39 @@ export const OrderManager: React.FC = () => {
       });
 
       const order = orders.find(o => o.id === orderId);
-      // Note: order type needs fcmToken
       const fcmToken = (order as any).fcmToken;
       if (fcmToken) {
         const label = STATUS_CONFIG[newStatus]?.label || newStatus;
         const idToken = await auth.currentUser?.getIdToken();
-        
-        fetch('/api/notify', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`
-          },
-          body: JSON.stringify({
-            fcmToken,
-            title: 'Sagrada Família: Pedido Atualizado!',
-            body: `Seu pedido #${order?.id.slice(0, 8)} agora está: ${label}.`,
-            link: '/'
-          })
-        }).catch(err => console.error('Falha ao enviar push:', err));
+
+        try {
+          const res = await fetch('/api/notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              fcmToken,
+              title: 'Sagrada Família: Pedido Atualizado!',
+              body: `Seu pedido #${order?.id.slice(0, 8)} agora está: ${label}.`,
+              link: '/',
+            }),
+          });
+          if (!res.ok) {
+            const raw = await res.text();
+            let detail = `HTTP ${res.status}`;
+            try {
+              const j = JSON.parse(raw) as { error?: string };
+              if (j.error) detail = j.error;
+            } catch {
+              /* ignore */
+            }
+            console.warn('[notify] Push não enviado:', detail);
+          }
+        } catch (e) {
+          console.warn('[notify] Falha na requisição:', e);
+        }
       }
     } catch (err) {
       alert('Erro ao atualizar status do pedido.');
@@ -250,7 +273,10 @@ export const OrderManager: React.FC = () => {
     if (!printWindow) return;
 
     const itemsHtml = order.items
-      .map(item => `<tr><td style="text-align:left;padding:2px 0">${item.quantity}× ${item.name}</td><td style="text-align:right;padding:2px 0">${formatCurrency(item.price * item.quantity)}</td></tr>`)
+      .map(
+        (item) =>
+          `<tr><td style="text-align:left;padding:2px 0">${item.quantity}× ${escapeHtml(item.name)}</td><td style="text-align:right;padding:2px 0">${escapeHtml(formatCurrency(item.price * item.quantity))}</td></tr>`
+      )
       .join('');
 
     printWindow.document.write(`
@@ -275,9 +301,9 @@ export const OrderManager: React.FC = () => {
         <p class="center info">${formatDate(order.createdAt)}</p>
         <p class="center info"><strong>${status.label.toUpperCase()}</strong></p>
         <div class="divider"></div>
-        <p class="info"><strong>Cliente:</strong> ${order.customerName}</p>
-        <p class="info"><strong>Endereço:</strong> ${order.deliveryAddress || '—'}</p>
-        <p class="info"><strong>CEP:</strong> ${order.cep || '—'}</p>
+        <p class="info"><strong>Cliente:</strong> ${escapeHtml(order.customerName)}</p>
+        <p class="info"><strong>Endereço:</strong> ${escapeHtml(order.deliveryAddress || '—')}</p>
+        <p class="info"><strong>CEP:</strong> ${escapeHtml(order.cep || '—')}</p>
         <p class="info"><strong>Pagamento:</strong> ${PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}</p>
         <div class="divider"></div>
         <table>${itemsHtml}</table>

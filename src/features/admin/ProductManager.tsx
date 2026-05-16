@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Package, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit2, Trash2, FileSpreadsheet } from 'lucide-react';
 import { BulkImportModal } from './components/BulkImportModal';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
@@ -91,6 +91,16 @@ export const ProductManager: React.FC = () => {
     }));
   };
 
+  const handleStorePriceFlag = (loja: StoreId, key: 'emOferta' | 'esgotado', checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      precos: {
+        ...prev.precos,
+        [loja]: { ...(prev.precos[loja] || DEFAULT_STORE_PRICE), [key]: checked },
+      },
+    }));
+  };
+
   const handleEdit = (produto: ManagedProduct) => {
     const { id, ...rest } = produto;
     setFormData(rest);
@@ -171,17 +181,126 @@ export const ProductManager: React.FC = () => {
       <FeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
 
       {isAdding && (
-        <div className="bg-white rounded-[12px] border-2 border-primary p-8 space-y-6">
+        <div className="bg-white rounded-[12px] border-2 border-primary p-8 space-y-8">
           <h2 className="text-[20px] font-[700] text-text">{editingId ? 'Editar' : 'Novo'} Produto</h2>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} placeholder="Nome" className="bg-[#F0F2F2] px-4 py-3 rounded-[8px] outline-none border border-transparent focus:border-primary" />
-            <select value={formData.categoria} onChange={e => setFormData({...formData, categoria: e.target.value})} className="bg-[#F0F2F2] px-4 py-3 rounded-[8px] outline-none border border-transparent focus:border-primary">
-              {PRODUCT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
+            <div className="space-y-2">
+              <label className="text-[13px] font-[600] text-muted">Nome</label>
+              <input
+                type="text"
+                value={formData.nome}
+                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                placeholder="Nome do produto"
+                className="w-full bg-[#F0F2F2] px-4 py-3 rounded-[8px] outline-none border border-transparent focus:border-primary"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[13px] font-[600] text-muted">Categoria</label>
+              <select
+                value={formData.categoria}
+                onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
+                className="w-full bg-[#F0F2F2] px-4 py-3 rounded-[8px] outline-none border border-transparent focus:border-primary"
+              >
+                {PRODUCT_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="flex gap-4 justify-end">
-            <button onClick={handleCancel} className="px-6 py-2.5 border rounded-[8px] font-[600]">Cancelar</button>
-            <button onClick={handleSave} disabled={loading} className="px-6 py-2.5 bg-primary text-white rounded-[8px] font-extrabold">{loading ? 'Salvando...' : 'Salvar'}</button>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[13px] font-[600] text-muted">Unidade de venda</label>
+              <select
+                value={formData.unit}
+                onChange={(e) => setFormData({ ...formData, unit: e.target.value as 'un' | 'kg' })}
+                className="w-full bg-[#F0F2F2] px-4 py-3 rounded-[8px] outline-none border border-transparent focus:border-primary"
+              >
+                <option value="un">Unidade (un)</option>
+                <option value="kg">Quilograma (kg)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[13px] font-[600] text-muted">Imagem</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleImageFileChange}
+                disabled={isUploadingImage}
+                className="w-full text-[13px] file:mr-3 file:rounded-[8px] file:border-0 file:bg-primary file:px-4 file:py-2 file:text-white file:font-bold"
+              />
+              {isUploadingImage && <p className="text-[12px] text-muted">Enviando imagem…</p>}
+              {formData.imageUrl ? (
+                <img src={formData.imageUrl} alt="" className="mt-2 max-h-32 rounded-lg border border-border object-contain bg-[#f8f8f8]" />
+              ) : null}
+            </div>
+          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={Boolean(formData.freteGratis)}
+              onChange={(e) => setFormData({ ...formData, freteGratis: e.target.checked })}
+              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span className="text-[14px] font-[600] text-text">Frete grátis para este produto (quando a política permitir)</span>
+          </label>
+
+          <div className="space-y-4">
+            <h3 className="text-[16px] font-[800] text-primary border-b border-border pb-2">Preços por loja</h3>
+            <p className="text-[13px] text-muted">Defina valor, oferta e disponibilidade em cada unidade.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {ADMIN_STORES.map(({ id, label }) => {
+                  const sp = formData.precos[id] || DEFAULT_STORE_PRICE;
+                  return (
+                    <div key={id} className="rounded-[12px] border border-border bg-[#FAFAFA] p-4 space-y-3">
+                      <p className="font-[800] text-[14px] text-text">{label}</p>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-muted uppercase">Preço (R$)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={sp.valor === 0 ? '' : sp.valor}
+                          onChange={(e) => handlePriceChange(id, e.target.value)}
+                          placeholder="0,00"
+                          className="w-full bg-white px-3 py-2.5 rounded-[8px] border border-gray-200 outline-none focus:border-primary text-[14px]"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sp.emOferta}
+                          onChange={(e) => handleStorePriceFlag(id, 'emOferta', e.target.checked)}
+                          className="rounded border-gray-300 text-primary"
+                        />
+                        Em oferta
+                      </label>
+                      <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sp.esgotado}
+                          onChange={(e) => handleStorePriceFlag(id, 'esgotado', e.target.checked)}
+                          className="rounded border-gray-300 text-primary"
+                        />
+                        Esgotado
+                      </label>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+
+          <div className="flex gap-4 justify-end pt-2 border-t border-border">
+            <button type="button" onClick={handleCancel} className="px-6 py-2.5 border rounded-[8px] font-[600]">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleSave} disabled={loading} className="px-6 py-2.5 bg-primary text-white rounded-[8px] font-extrabold">
+              {loading ? 'Salvando...' : 'Salvar'}
+            </button>
           </div>
         </div>
       )}

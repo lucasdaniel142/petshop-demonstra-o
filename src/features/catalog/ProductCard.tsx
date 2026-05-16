@@ -1,31 +1,41 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Product, StorePrice } from '../../shared/types';
-import { useCart } from '../../shared/hooks/useCart';
+import { useCartStore } from '../../shared/store/useCartStore';
 import { DEFAULT_PLACEHOLDER_IMAGE } from '../../shared/utils/placeholderImage';
 
 interface ProductCardProps {
   product: Product;
   storePrice?: StorePrice;
   storeId: string;
+  /** Primeiros cards da grade: prioriza LCP */
+  imageLoading?: 'lazy' | 'eager';
+  imageFetchPriority?: 'high' | 'low' | 'auto';
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, storePrice, storeId }) => {
-  const { addItem, updateQuantity, getItemQuantity } = useCart();
+export const ProductCard = React.memo(function ProductCard({
+  product,
+  storePrice,
+  storeId,
+  imageLoading = 'lazy',
+  imageFetchPriority = 'auto',
+}: ProductCardProps) {
+  const quantity = useCartStore((s) => s.items.find((i) => i.id === product.id)?.quantity ?? 0);
+  const addItem = useCartStore((s) => s.addItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
 
-  const quantity = getItemQuantity(product.id);
   const isAdded = quantity > 0;
   const disabled = !storePrice || storePrice.esgotado;
   const isOffer = storePrice?.emOferta ?? false;
   const hasPrice = product.price > 0;
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
     if (disabled || !storePrice) return;
     addItem({
       ...product,
       price: storePrice?.valor ?? product.price,
       storeId,
     });
-  };
+  }, [addItem, disabled, product, storeId, storePrice]);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6 lg:p-8 flex flex-col h-full border-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
@@ -34,7 +44,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, storePrice, s
           src={product.imageUrl || DEFAULT_PLACEHOLDER_IMAGE}
           alt={product.name}
           className="w-full h-full object-contain p-2"
-          loading="lazy"
+          width={400}
+          height={120}
+          loading={imageLoading}
+          fetchPriority={imageFetchPriority}
+          decoding="async"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = DEFAULT_PLACEHOLDER_IMAGE;
           }}
@@ -78,6 +92,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, storePrice, s
         <div className="mt-auto">
           {!isAdded ? (
             <button
+              type="button"
               onClick={handleAdd}
               disabled={disabled}
               className="w-full min-h-[44px] rounded-xl bg-accent text-on-accent font-extrabold text-[13px] tracking-wide flex items-center justify-center shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-45"
@@ -85,20 +100,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, storePrice, s
               Adicionar
             </button>
           ) : (
-            <div className="w-full h-[44px] bg-primary rounded-xl text-on-primary flex items-center justify-between px-1">
+            <div className="w-full min-h-11 bg-primary rounded-xl text-on-primary flex items-center justify-between px-1 gap-0.5">
               <button
+                type="button"
                 onClick={() => updateQuantity(product.id, quantity - 1)}
-                className="w-[28px] h-[28px] flex items-center justify-center text-[18px] rounded-[4px] hover:bg-white/20 transition-colors"
-              >−</button>
-              <span className="font-semibold text-[14px]">{quantity}</span>
+                className="min-w-11 min-h-11 flex items-center justify-center text-lg rounded-lg hover:bg-white/20 transition-colors"
+                aria-label="Diminuir quantidade"
+              >
+                −
+              </button>
+              <span className="font-semibold text-sm tabular-nums min-w-8 text-center">{quantity}</span>
               <button
+                type="button"
                 onClick={() => updateQuantity(product.id, quantity + 1)}
-                className="w-[28px] h-[28px] flex items-center justify-center text-[18px] rounded-[4px] hover:bg-white/20 transition-colors"
-              >+</button>
+                className="min-w-11 min-h-11 flex items-center justify-center text-lg rounded-lg hover:bg-white/20 transition-colors"
+                aria-label="Aumentar quantidade"
+              >
+                +
+              </button>
             </div>
           )}
         </div>
       </div>
     </div>
   );
-};
+});

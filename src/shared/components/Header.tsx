@@ -43,6 +43,8 @@ export const Header: React.FC<HeaderProps> = ({
           <img
             src="/logo.png"
             alt={BRAND.name}
+            width={200}
+            height={80}
             className="h-14 md:h-20 w-auto object-contain drop-shadow-md"
           />
         </div>
