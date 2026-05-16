@@ -1,28 +1,22 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getMessaging } from 'firebase-admin/messaging';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
 
-if (getApps().length === 0) {
-  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
-
-  if (serviceAccountKey) {
-    try {
-      const serviceAccount = JSON.parse(serviceAccountKey);
-      initializeApp({
-        credential: cert(serviceAccount),
-      });
-    } catch (error) {
-      console.error('[Firebase Admin] Erro ao parsear FIREBASE_SERVICE_ACCOUNT_KEY:', error);
-      initializeApp({ projectId });
+if (!admin.apps.length) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+    
+    if (Object.keys(serviceAccount).length === 0) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing or empty');
     }
-  } else {
-    // Fallback para Default Credentials se estiver no ambiente Google ou se o ProjectID estiver setado
-    initializeApp({ projectId });
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+    });
+  } catch (error) {
+    console.error('Firebase Admin initialization error:', error);
   }
 }
 
-export const adminMessaging = getMessaging();
-export const adminAuth = getAuth();
-export const adminDb = getFirestore();
+export const adminDb = admin.firestore();
+export const adminAuth = admin.auth();
+export const adminMessaging = admin.messaging();

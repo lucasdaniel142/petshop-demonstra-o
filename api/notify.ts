@@ -35,9 +35,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     
+    // Proteção básica contra Replay: Verificar se o token foi emitido há mais de 5 minutos
+    // (Ajuste conforme a necessidade de sincronia de relógio)
+    const now = Math.floor(Date.now() / 1000);
+    if (now - decodedToken.iat > 300) { 
+      return res.status(403).json({ error: 'Token expirado para esta operação (Replay Protection).' });
+    }
+
     // Verificar se o usuário é realmente um admin no Firestore
     const adminDoc = await adminDb.collection('admins').doc(decodedToken.uid).get();
     if (!adminDoc.exists || adminDoc.data()?.role !== 'admin') {
+      console.warn(`[Security] Tentativa de acesso não autorizado por UID: ${decodedToken.uid}`);
       return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
     }
 

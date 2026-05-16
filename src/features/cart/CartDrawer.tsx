@@ -178,37 +178,45 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         changeForNum = parseFloat(changeFor.replace(',', '.'));
       }
 
-      const orderData = {
-        items,
-        subtotal: cartTotal,
-        deliveryFee,
-        total: totalGeral,
-        customerName: sanitizedName.slice(0, 100),
+      // NOVO FLUXO: Enviar para API em vez de gravar direto no Firestore
+      const checkoutPayload = {
+        items: items.map(item => ({ id: item.id, quantity: item.quantity })),
+        customerName: sanitizedName,
         customerPhone: cleanPhone,
         deliveryAddress: sanitizedAddress,
         cep: cep.replace(/\D/g, ''),
         storeId: selectedStoreId,
-        storeLabel: selectedStoreLabel,
         paymentMethod: paymentMethod === 'Dinheiro' ? 'dinheiro' : paymentMethod === 'Pix' ? 'pix_presencial' : paymentMethod === 'Ticket Alimentação/Refeição' ? 'ticket' : 'maquininha',
-        paymentStatus: 'pending',
         changeFor: changeForNum,
-        fcmToken: finalFcmToken,
-        createdAt: serverTimestamp(),
+        distanceKm: activeDelivery?.distanceKm || 0,
+        fcmToken: finalFcmToken
       };
 
-      await addDoc(collection(db, 'pedidos'), orderData);
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checkoutPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro na API de checkout');
+      }
+
+      const { orderId, subtotal: serverSubtotal, deliveryFee: serverDeliveryFee } = await response.json();
 
       const storePhone = STORE_WHATSAPP_NUMBERS[selectedStoreId];
       const link = generateWhatsAppLink(
         items,
-        cartTotal,
+        serverSubtotal,
         sanitizedName,
         deliveryAddress,
         paymentMethod,
         selectedStoreLabel,
         storePhone,
-        deliveryFee,
-        changeFor || undefined
+        serverDeliveryFee,
+        changeFor || undefined,
+        !delivery && !hasFreeShipping // isFallback flag
       );
 
       if (!link) {
@@ -226,9 +234,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       setCep('');
       setChangeFor('');
       toggleCart();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao salvar pedido:', err);
-      setCheckoutError('Ocorreu um erro ao salvar seu pedido. Tente novamente.');
+      setCheckoutError(err.message || 'Ocorreu um erro ao salvar seu pedido. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -314,7 +322,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
             <div className="flex justify-between text-[14px] text-muted">
               <div className="flex items-center gap-1">
                 <span>Taxa de Entrega</span>
-                {delivery && <MapPin size={12} className="text-primary" />}
+                {delivery ? (
+                  <MapPin size={12} className="text-primary" />
+                ) : !hasFreeShipping && (
+                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">Sujeita a confirmação</span>
+                )}
               </div>
               <div className="text-right">
                 <span className={deliveryFee === 0 ? 'text-green-600 font-semibold' : ''}>

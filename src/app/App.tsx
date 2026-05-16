@@ -1,46 +1,62 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../shared/contexts/AuthContext';
 import { Home } from '../features/catalog/Home';
-import { Login } from '../features/admin/Login';
-import { ProtectedRoute } from '../features/admin/ProtectedRoute';
-import { AdminLayout } from '../features/admin/AdminLayout';
-import { PriceManager } from '../features/admin/PriceManager';
-import { TeamManager } from '../features/admin/TeamManager';
-import { ProductManager } from '../features/admin/ProductManager';
-import { OrderManager } from '../features/admin/OrderManager';
 import { PrivacyPolicy } from '../shared/pages/PrivacyPolicy';
 import { InstallPWA } from '../shared/components/InstallPWA';
+import { LoadingFallback } from '../shared/components/LoadingFallback';
+import { ProtectedRoute } from '../features/admin/ProtectedRoute';
+
+/**
+ * Lazy Loading de Componentes Administrativos
+ * Isso garante que o bundle inicial do cliente seja leve e não contenha
+ * o código pesado do painel de administração.
+ */
+const Login = lazy(() => import('../features/admin/Login').then(m => ({ default: m.Login })));
+const AdminLayout = lazy(() => import('../features/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const PriceManager = lazy(() => import('../features/admin/PriceManager').then(m => ({ default: m.PriceManager })));
+const TeamManager = lazy(() => import('../features/admin/TeamManager').then(m => ({ default: m.TeamManager })));
+const ProductManager = lazy(() => import('../features/admin/ProductManager').then(m => ({ default: m.ProductManager })));
+const OrderManager = lazy(() => import('../features/admin/OrderManager').then(m => ({ default: m.OrderManager })));
 
 export const App: React.FC = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
         <InstallPWA />
-        <Routes>
-          {/* Rota Pública (Vitrine) */}
-          <Route path="/" element={<Home />} />
-          <Route path="/privacidade" element={<PrivacyPolicy />} />
+        
+        {/* Suspense envolve todas as rotas para capturar o carregamento dos chunks lazy */}
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            {/* --- ROTAS PÚBLICAS (Importação Normal para SEO e Performance Inicial) --- */}
+            <Route path="/" element={<Home />} />
+            <Route path="/privacidade" element={<PrivacyPolicy />} />
 
-          {/* Rotas Administrativas */}
-          <Route path="/login" element={<Login />} />
-          
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute>
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-            {/* Sub-rotas do Admin */}
-            <Route index element={<PriceManager />} />
-            <Route path="equipe" element={<TeamManager />} />
-            <Route path="produtos" element={<ProductManager />} />
-            <Route path="pedidos" element={<OrderManager />} />
-          </Route>
-        </Routes>
+            {/* --- ROTAS ADMINISTRATIVAS (Lazy Loaded) --- */}
+            <Route path="/login" element={<Login />} />
+            
+            {/* Todas as rotas começando com /admin são protegidas e carregadas sob demanda */}
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Sub-rotas do Admin */}
+              <Route index element={<PriceManager />} />
+              <Route path="equipe" element={<TeamManager />} />
+              <Route path="produtos" element={<ProductManager />} />
+              <Route path="pedidos" element={<OrderManager />} />
+            </Route>
+
+            {/* Redirecionamento de rotas não encontradas para Home */}
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );
 };
+

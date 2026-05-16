@@ -113,24 +113,24 @@ service cloud.firestore {
     }
 
     // --- COLEÇÃO: pedidos ---
-    // Leitura: Admins podem ler todos os pedidos (para gestão).
-    // Escrita (Create): Qualquer usuário pode criar um pedido (Checkout no CartDrawer).
-    // Escrita (Update/Delete): Apenas Admins podem alterar status ou excluir.
+    // SEGURANÇA AVANÇADA: Create bloqueado para o cliente. 
+    // Pedidos agora são criados exclusivamente via /api/checkout (Firebase Admin SDK).
+    // Isso garante que o preço e o frete sejam validados no servidor.
     match /pedidos/{pedidoId} {
       allow read: if isAdmin();
-      allow create: if isValidOrder(); // Valida schema para evitar lixo no DB
-      allow update: if isAdmin(); // Permite que o painel admin atualize o status
-      allow delete: if isAdmin(); // Permite que admins excluam pedidos
+      allow create: if false; // Bloqueado: Use /api/checkout
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // --- COLEÇÃO: fcmTokens ---
     // Leitura: apenas admins
-    // Escrita: qualquer um, mas o ID do documento DEVE ser o token,
-    // e o payload só pode conter o token, updatedAt e platform para evitar DoS e injeção de dados.
+    // Escrita: limitada para evitar DoS e poluição de dados
     match /fcmTokens/{tokenId} {
       allow read: if isAdmin();
-      allow create, update: if request.resource.data.keys().hasOnly(['lastUsed', 'customerName', 'platform', 'token'])
-                            && (tokenId.size() > 0)
+      allow create, update: if request.auth != null // Exigir auth básico (mesmo anônimo) para evitar bots puros
+                            && request.resource.data.keys().hasOnly(['lastUsed', 'customerName', 'platform', 'token'])
+                            && (tokenId.size() > 10) // Evitar IDs curtos/lixo
                             && (!('customerName' in request.resource.data) || request.resource.data.customerName is string);
       allow delete: if isAdmin();
     }
