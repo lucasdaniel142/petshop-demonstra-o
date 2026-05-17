@@ -1,0 +1,242 @@
+[
+  {
+    "nome": "Arroz Branco Tipo 1 5kg",
+    "descricao": "Arroz branco tipo 1 - grãos selecionados.",
+    "categoria": "Mercearia",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Arroz+5kg",
+    "precos": {
+      "benedito_bentes": { "valor": 22.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 22.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 22.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Feijão Carioca 1kg",
+    "descricao": "Feijão carioca sabor caseiro.",
+    "categoria": "Mercearia",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Feijao+1kg",
+    "precos": {
+      "benedito_bentes": { "valor": 8.49, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 8.49, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 8.49, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Óleo de Soja 900ml",
+    "descricao": "Óleo de soja refinado 900ml.",
+    "categoria": "Mercearia",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Oleo+900ml",
+    "precos": {
+      "benedito_bentes": { "valor": 7.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 7.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 7.99, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Açúcar Cristal 1kg",
+    "descricao": "Açúcar cristal para uso diário.",
+    "categoria": "Mercearia",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Acucar+1kg",
+    "precos": {
+      "benedito_bentes": { "valor": 4.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 4.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 4.99, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Café Torrado e Moído 500g",
+    "descricao": "Café tradicional torrado e moído 500g.",
+    "categoria": "Mercearia",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Cafe+500g",
+    "precos": {
+      "benedito_bentes": { "valor": 18.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 18.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 18.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Leite Integral 1L",
+    "descricao": "Leite integral pasteurizado 1 litro.",
+    "categoria": "Bebidas",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Leite+1L",
+    "precos": {
+      "benedito_bentes": { "valor": 5.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 5.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 5.99, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Coca-Cola 2L",
+    "descricao": "Refrigerante Coca-Cola 2 litros.",
+    "categoria": "Bebidas",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Coca+2L",
+    "precos": {
+      "benedito_bentes": { "valor": 10.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 10.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 10.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Banana Prata (kg)",
+    "descricao": "Banana prata fresca por kg.",
+    "categoria": "Hortifruti",
+    "unit": "kg",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Banana+kg",
+    "precos": {
+      "benedito_bentes": { "valor": 5.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 5.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 5.99, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Tomate (kg)",
+    "descricao": "Tomate maduro por kg.",
+    "categoria": "Hortifruti",
+    "unit": "kg",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Tomate+kg",
+    "precos": {
+      "benedito_bentes": { "valor": 8.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 8.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 8.99, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Cebola (kg)",
+    "descricao": "Cebola por kg.",
+    "categoria": "Hortifruti",
+    "unit": "kg",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Cebola+kg",
+    "precos": {
+      "benedito_bentes": { "valor": 6.49, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 6.49, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 6.49, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Batata Inglesa (kg)",
+    "descricao": "Batata inglesa por kg.",
+    "categoria": "Hortifruti",
+    "unit": "kg",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Batata+kg",
+    "precos": {
+      "benedito_bentes": { "valor": 7.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 7.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 7.99, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Peito de Frango (kg)",
+    "descricao": "Peito de frango resfriado por kg.",
+    "categoria": "Açougue e Peixaria",
+    "unit": "kg",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Frango+kg",
+    "precos": {
+      "benedito_bentes": { "valor": 16.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 16.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 16.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Carne Moída (kg)",
+    "descricao": "Carne moída bovina por kg.",
+    "categoria": "Açougue e Peixaria",
+    "unit": "kg",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Carne+kg",
+    "precos": {
+      "benedito_bentes": { "valor": 29.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 29.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 29.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Pão Francês (kg)",
+    "descricao": "Pão francês fresco por kg.",
+    "categoria": "Padaria e Confeitaria",
+    "unit": "kg",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Pao+kg",
+    "precos": {
+      "benedito_bentes": { "valor": 14.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 14.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 14.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Detergente Líquido 500ml",
+    "descricao": "Detergente líquido para louças 500ml.",
+    "categoria": "Limpeza",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Detergente+500ml",
+    "precos": {
+      "benedito_bentes": { "valor": 2.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 2.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 2.99, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Sabão em Pó 1kg",
+    "descricao": "Sabão em pó para roupa 1kg.",
+    "categoria": "Limpeza",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Sabo+1kg",
+    "precos": {
+      "benedito_bentes": { "valor": 12.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 12.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 12.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Papel Higiênico 12 rolos",
+    "descricao": "Papel higiênico pacote com 12 rolos.",
+    "categoria": "Higiene Pessoal",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Papel+12",
+    "precos": {
+      "benedito_bentes": { "valor": 18.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 18.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 18.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Sabonete 90g",
+    "descricao": "Sabonete em barra 90g.",
+    "categoria": "Higiene Pessoal",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Sabonete+90g",
+    "precos": {
+      "benedito_bentes": { "valor": 2.49, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 2.49, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 2.49, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Pizza Congelada 440g",
+    "descricao": "Pizza congelada sabor muçarela 440g.",
+    "categoria": "Congelados",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Pizza+440g",
+    "precos": {
+      "benedito_bentes": { "valor": 15.9, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 15.9, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 15.9, "emOferta": false, "esgotado": false }
+    }
+  },
+  {
+    "nome": "Suco de Laranja 1L",
+    "descricao": "Suco natural de laranja 1 litro.",
+    "categoria": "Bebidas",
+    "unit": "un",
+    "imageUrl": "https://via.placeholder.com/600x600.png?text=Suco+1L",
+    "precos": {
+      "benedito_bentes": { "valor": 7.99, "emOferta": false, "esgotado": false },
+      "salvador_lyra": { "valor": 7.99, "emOferta": false, "esgotado": false },
+      "vergel_do_lago": { "valor": 7.99, "emOferta": false, "esgotado": false }
+    }
+  }
+]
