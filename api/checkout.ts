@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb } from './_utils/firebaseAdmin';
+import { getAdminDb } from './utils/firebaseAdmin';
 
 // Configurações de entrega duplicadas para o backend (Segurança: Single Source of Truth em produção viria de um DB de config)
 const DELIVERY_BASE_FEE = parseFloat(process.env.VITE_DELIVERY_BASE_FEE || '5.00');

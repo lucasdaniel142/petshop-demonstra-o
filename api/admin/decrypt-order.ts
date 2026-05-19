@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAdminAuth, getAdminDb } from '../_utils/firebaseAdmin';
-import { decryptPII } from '../_utils/encryption';
+import { getAdminAuth, getAdminDb } from '../utils/firebaseAdmin';
+import { decryptPII } from '../utils/encryption';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
