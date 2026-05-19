@@ -47,14 +47,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let hasFreeShipping = false;
     const validatedItems = [];
 
-    // Busca todos os produtos do pedido de uma vez para eficiência
-    const productIds = items.map((item: any) => item.id);
-    const productsSnapshot = await adminDb.collection('produtos').where('__name__', 'in', productIds).get();
-    
+    // Busca todos os produtos do pedido de forma segura e compatível com Firestore
+    const productIds = items.map((item: any) => item.id).filter(Boolean);
     const productMap: Record<string, any> = {};
-    productsSnapshot.forEach(doc => {
-      productMap[doc.id] = doc.data();
-    });
+
+    const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+      const result: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) {
+        result.push(arr.slice(i, i + size));
+      }
+      return result;
+    };
+
+    const productIdChunks = chunkArray(productIds, 10);
+    for (const chunk of productIdChunks) {
+      const productsSnapshot = await adminDb.collection('produtos').where('__name__', 'in', chunk).get();
+      productsSnapshot.forEach(doc => {
+        productMap[doc.id] = doc.data();
+      });
+    }
 
     for (const item of items) {
       const realProduct = productMap[item.id];

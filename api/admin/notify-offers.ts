@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminMessaging, adminAuth, adminDb } from '../_utils/firebaseAdmin';
+import { getAdminMessaging, getAdminAuth, getAdminDb } from '../_utils/firebaseAdmin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // --- CORS CONFIGURATION (SEC-02) ---
@@ -29,6 +29,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Não autorizado. Token não fornecido.' });
     }
+
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
+    const adminMessaging = getAdminMessaging();
 
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);

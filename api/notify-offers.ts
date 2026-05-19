@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminMessaging, adminAuth, adminDb } from './_utils/firebaseAdmin';
+import { getAdminMessaging, getAdminAuth, getAdminDb } from './_utils/firebaseAdmin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // --- CORS CONFIGURATION (SEC-02) ---
@@ -24,6 +24,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
+    const adminMessaging = getAdminMessaging();
+
     // 1. Verificar Autenticação (Apenas Admins)
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

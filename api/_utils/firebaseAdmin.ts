@@ -8,47 +8,69 @@ import { getAuth } from 'firebase-admin/auth';
  * Este padrão é o mais estável para ambientes Node.js modernos e Vercel Serverless.
  */
 
-const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+const rawServiceAccountKey =
+  process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
+  process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64 ||
+  process.env.SERVICE_ACCOUNT_KEY;
 
-if (!serviceAccountKey) {
-  // Nota: Não lançamos erro no nível global do módulo para permitir que o servidor suba,
-  // mas as funções internas (getAdminDb, etc) validarão isso.
-  console.warn("⚠️ FIREBASE_SERVICE_ACCOUNT_KEY não definida.");
+if (!rawServiceAccountKey) {
+  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT_KEY não definida.');
 }
 
-function initializeAdmin() {
-  if (getApps().length === 0 && serviceAccountKey) {
+function parseServiceAccountKey(value: string) {
+  const trimmed = value.trim();
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
     try {
-      const serviceAccount = JSON.parse(serviceAccountKey);
-      initializeApp({
-        credential: cert(serviceAccount)
-      });
+      const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
+      return JSON.parse(decoded);
     } catch (error: any) {
-      console.error("❌ Erro ao inicializar Firebase Admin:", error.message);
+      throw new Error(
+        'FIREBASE_SERVICE_ACCOUNT_KEY não é JSON válido. Use JSON puro ou base64 encoded JSON.'
+      );
     }
   }
 }
 
-// Inicializa uma vez no carregamento do módulo
+function initializeAdmin() {
+  if (getApps().length === 0 && rawServiceAccountKey) {
+    try {
+      const serviceAccount = parseServiceAccountKey(rawServiceAccountKey);
+      initializeApp({
+        credential: cert(serviceAccount)
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao inicializar Firebase Admin:', error.message);
+    }
+  }
+}
+
 initializeAdmin();
 
-// Exportações Seguras
-export const getAdminDb = () => {
+const ensureAdminInitialized = () => {
   initializeAdmin();
+  if (getApps().length === 0) {
+    throw new Error('Firebase Admin não inicializado. Verifique FIREBASE_SERVICE_ACCOUNT_KEY.');
+  }
+};
+
+export const getAdminDb = () => {
+  ensureAdminInitialized();
   return getFirestore();
 };
 
 export const getAdminAuth = () => {
-  initializeAdmin();
+  ensureAdminInitialized();
   return getAuth();
 };
 
 export const getAdminMessaging = () => {
-  initializeAdmin();
+  ensureAdminInitialized();
   return getMessaging();
 };
 
-// Aliases para compatibilidade (Legacy)
 export const adminDb = getApps().length ? getFirestore() : null;
 export const adminAuth = getApps().length ? getAuth() : null;
 export const adminMessaging = getApps().length ? getMessaging() : null;

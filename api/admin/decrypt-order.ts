@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminDb, adminAuth } from '../_utils/firebaseAdmin';
+import { getAdminAuth, getAdminDb } from '../_utils/firebaseAdmin';
 import { decryptPII } from '../_utils/encryption';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -18,6 +18,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminDb();
+
     let decodedToken;
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
