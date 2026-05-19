@@ -13,8 +13,8 @@
 //   Acima de 15km = fora da área
 // ============================================================
 
-import type { StoreId } from '../types';
-import type { Coordinates } from '../utils/geolocation';
+import type { StoreId } from '../shared/types';
+import type { Coordinates } from '../shared/utils/geolocation';
 
 /** Coordenadas geográficas exatas de cada sede */
 export const STORE_COORDINATES: Record<StoreId, Coordinates> = {

@@ -43,10 +43,5 @@ async function main() {
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.cwd()}/scripts/import_products.mjs`) {
-  // quando executado diretamente
-  main();
-} else {
-  // permitir import em testes
-  export { main };
-}
+// Executa diretamente
+main();

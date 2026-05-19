@@ -5,7 +5,7 @@
 // uma entrada aqui — o restante do sistema se adapta.
 // ============================================================
 
-import type { StoreId, StoreOption } from '../types';
+import type { StoreId, StoreOption } from '../shared/types';
 
 // ── IDs das lojas (devem corresponder ao type StoreId) ──
 export const STORE_IDS: StoreId[] = ['benedito_bentes', 'salvador_lyra', 'vergel_do_lago'];
