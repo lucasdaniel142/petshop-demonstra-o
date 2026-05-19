@@ -18,6 +18,7 @@ function sanitizeCustomerText(str: unknown, maxLen: number): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -152,10 +153,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('[API Checkout] Erro Crítico:', error);
-    
-    // Retornamos o erro detalhado para facilitar o debug em desenvolvimento
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: error.message || 'Erro interno desconhecido',
+      code: error.code || 'INTERNAL_SERVER_ERROR',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }

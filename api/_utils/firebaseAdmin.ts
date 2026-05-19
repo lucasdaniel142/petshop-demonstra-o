@@ -14,7 +14,7 @@ const rawServiceAccountKey =
   process.env.SERVICE_ACCOUNT_KEY;
 
 if (!rawServiceAccountKey) {
-  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT_KEY não definida.');
+  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT_KEY não definida. Configure a credencial do Firebase Admin no Vercel.');
 }
 
 function parseServiceAccountKey(value: string) {
@@ -52,7 +52,11 @@ initializeAdmin();
 const ensureAdminInitialized = () => {
   initializeAdmin();
   if (getApps().length === 0) {
-    throw new Error('Firebase Admin não inicializado. Verifique FIREBASE_SERVICE_ACCOUNT_KEY.');
+    throw new Error(
+      rawServiceAccountKey
+        ? 'Firebase Admin não inicializado. Verifique se FIREBASE_SERVICE_ACCOUNT_KEY é JSON válido.'
+        : 'Firebase Admin não inicializado porque FIREBASE_SERVICE_ACCOUNT_KEY está ausente. Defina o secret no Vercel.'
+    );
   }
 };
 

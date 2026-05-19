@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminMessaging, getAdminAuth, getAdminDb } from './_utils/firebaseAdmin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   // --- CORS CONFIGURATION (SEC-02) ---
   const ALLOWED_ORIGIN = process.env.VITE_APP_URL || '';
   const origin = req.headers.origin || '';

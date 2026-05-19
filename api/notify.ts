@@ -4,6 +4,7 @@ import { getAdminMessaging, getAdminAuth, getAdminDb } from './_utils/firebaseAd
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // --- 1. CORS CONFIGURATION ---
   const ALLOWED_ORIGIN = process.env.VITE_APP_URL || '';
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   const origin = req.headers.origin || '';
   
   // Permite localhost em desenvolvimento ou o domínio configurado
@@ -37,7 +38,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(idToken);
+    } catch (error: any) {
+      console.warn('[API Notify] Token inválido ou expirado:', error.message);
+      return res.status(401).json({ error: 'Token inválido ou expirado.' });
+    }
     
     // Proteção básica contra Replay: Verificar se o token foi emitido há mais de 5 minutos
     // (Ajuste conforme a necessidade de sincronia de relógio)

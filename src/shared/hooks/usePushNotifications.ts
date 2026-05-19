@@ -21,7 +21,7 @@ export function usePushNotifications() {
           if (Notification.permission === 'granted') {
             new Notification(payload.notification.title || 'Nova Oferta!', {
               body: payload.notification.body,
-              icon: '/icons/icon-192.png'
+              icon: '/logo.png'
             });
           }
         }
