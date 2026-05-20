@@ -154,7 +154,10 @@ export const PriceManager: React.FC = () => {
       
       const data = await response.json();
       if (response.ok) {
-        setFeedback({ type: 'success', message: `Notificações enviadas com sucesso!` });
+        setFeedback({ 
+          type: 'success', 
+          message: `Notificações enviadas com sucesso para ${data.sentCount ?? 0} dispositivos!` 
+        });
       } else {
         setFeedback({ type: 'error', message: data.error || 'Erro ao enviar notificações' });
       }

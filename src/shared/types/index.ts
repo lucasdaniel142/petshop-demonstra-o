@@ -100,6 +100,7 @@ export interface Order {
   customerName: string;
   deliveryAddress: string;
   cep: string;
+  phone?: string;
   storeId: StoreId;
   storeLabel: string;
   paymentMethod: PaymentMethodType;
@@ -107,4 +108,5 @@ export interface Order {
   changeFor?: number | null;
   createdAt: unknown;
   updatedAt?: unknown;
+  fcmToken?: string;
 }

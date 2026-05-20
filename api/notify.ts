@@ -73,6 +73,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Campo obrigatório ausente: fcmToken ou topic' });
     }
 
+    // --- Caso 3A: Envio para todos os clientes registrados (via Tópico) ---
+    if (topic && typeof topic === 'string' && topic.trim()) {
+      const tokensSnapshot = await adminDb.collection('fcmTokens').get();
+      const tokens: string[] = [];
+      tokensSnapshot.forEach((doc: any) => {
+        const t = doc.id;
+        if (t && typeof t === 'string' && t.trim()) {
+          tokens.push(t.trim());
+        }
+      });
+
+      if (tokens.length === 0) {
+        return res.status(200).json({ success: true, sentCount: 0, message: 'Nenhum cliente registrado para receber notificações.' });
+      }
+
+      const batchSize = 500;
+      let sentCount = 0;
+      let failureCount = 0;
+      const invalidTokensToDelete: string[] = [];
+
+      for (let i = 0; i < tokens.length; i += batchSize) {
+        const batchTokens = tokens.slice(i, i + batchSize);
+        const multicastMessage = {
+          tokens: batchTokens,
+          notification: {
+            title: title.trim(),
+            body: body.trim(),
+          },
+          webpush: {
+            fcmOptions: {
+              link: typeof link === 'string' && link.trim() ? link.trim() : '/',
+            },
+          },
+        };
+
+        const response = await adminMessaging.sendEachForMulticast(multicastMessage);
+        sentCount += response.successCount;
+        failureCount += response.failureCount;
+
+        response.responses.forEach((resp: any, idx: number) => {
+          if (!resp.success) {
+            const error = resp.error;
+            const token = batchTokens[idx];
+            if (
+              error?.code === 'messaging/registration-token-not-registered' ||
+              error?.message?.includes('NotRegistered') ||
+              error?.message?.includes('registration-token-not-registered')
+            ) {
+              invalidTokensToDelete.push(token);
+            }
+          }
+        });
+      }
+
+      if (invalidTokensToDelete.length > 0) {
+        const dbBatch = adminDb.batch();
+        invalidTokensToDelete.forEach((token) => {
+          dbBatch.delete(adminDb.collection('fcmTokens').doc(token));
+        });
+        await dbBatch.commit();
+        console.log(`[API Notify] Removidos ${invalidTokensToDelete.length} tokens inválidos.`);
+      }
+
+      return res.status(200).json({
+        success: true,
+        sentCount,
+        failureCount,
+        message: `Notificações enviadas: ${sentCount} com sucesso, ${failureCount} falhas.`
+      });
+    }
+
+    // --- Caso 3B: Envio para um único token ---
     const message: any = {
       notification: {
         title: title.trim(),
@@ -83,16 +155,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           link: typeof link === 'string' && link.trim() ? link.trim() : '/',
         },
       },
+      token: fcmToken.trim(),
     };
 
-    if (fcmToken && typeof fcmToken === 'string' && fcmToken.trim()) {
-      message.token = fcmToken.trim();
-    } else {
-      message.topic = topic.trim();
-    }
+    try {
+      const response = await adminMessaging.send(message);
+      return res.status(200).json({ success: true, messageId: response });
+    } catch (sendError: any) {
+      const isUnregistered =
+        sendError.code === 'messaging/registration-token-not-registered' ||
+        sendError.message?.includes('registration-token-not-registered') ||
+        sendError.message?.includes('NotRegistered');
 
-    const response = await adminMessaging.send(message);
-    return res.status(200).json({ success: true, messageId: response });
+      if (isUnregistered) {
+        try {
+          await adminDb.collection('fcmTokens').doc(fcmToken.trim()).delete();
+          console.log(`[API Notify] Token individual inválido removido: ${fcmToken}`);
+        } catch (dbErr) {
+          console.warn('[API Notify] Falha ao deletar token individual inválido:', dbErr);
+        }
+        return res.status(410).json({
+          success: false,
+          error: 'NotRegistered',
+          detail: 'O token do cliente expirou ou não é mais válido.'
+        });
+      }
+      throw sendError;
+    }
 
   } catch (error: any) {
     console.error('[API Notify] Erro:', error);

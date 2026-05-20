@@ -177,10 +177,14 @@ const OrderCard: React.FC<{
           </button>
           <button
             onClick={() => {
+              if (!order.phone) {
+                alert('Este pedido não possui número de telefone cadastrado.');
+                return;
+              }
               const statusMsg = `Olá *${order.customerName}*! Seu pedido *#${order.id.slice(0, 8)}* teve o status atualizado para: *${STATUS_CONFIG[order.paymentStatus]?.label || order.paymentStatus}*.`;
-              // Note: phone logic should ideally be sanitized or provided by Order type correctly
-              const phone = order.id; // Wait, Order type needs phone
-              // I'll keep the logic but use a safe fallback
+              const formattedPhone = order.phone.replace(/\D/g, '');
+              const whatsappUrl = `https://wa.me/55${formattedPhone}?text=${encodeURIComponent(statusMsg)}`;
+              window.open(whatsappUrl, '_blank');
             }}
             className="p-1.5 hover:bg-green-100 rounded-lg transition-colors"
             title="Avisar no WhatsApp"
@@ -193,7 +197,10 @@ const OrderCard: React.FC<{
       <div className="px-5 py-4 space-y-3">
         <div className="flex items-start gap-2 text-sm">
           <User size={14} className="text-muted mt-0.5 shrink-0" />
-          <div><span className="font-semibold text-text">{order.customerName}</span></div>
+          <div>
+            <span className="font-semibold text-text">{order.customerName}</span>
+            {order.phone && <span className="text-muted ml-2">({order.phone})</span>}
+          </div>
         </div>
         {order.deliveryAddress && (
           <div className="flex items-start gap-2 text-sm">
@@ -273,13 +280,21 @@ export const OrderManager: React.FC = () => {
           if (!res.ok) {
             const raw = await res.text();
             let detail = `HTTP ${res.status}`;
+            let isNotRegistered = res.status === 410;
             try {
               const j = JSON.parse(raw) as { error?: string };
-              if (j.error) detail = j.error;
+              if (j.error) {
+                detail = j.error;
+                if (j.error === 'NotRegistered') isNotRegistered = true;
+              }
             } catch {
               /* ignore */
             }
-            console.warn('[notify] Push não enviado:', detail);
+            if (isNotRegistered) {
+              console.log('[notify] Notificação ignorada: O token FCM do cliente expirou ou foi descadastrado.');
+            } else {
+              console.warn('[notify] Push não enviado:', detail);
+            }
           }
         } catch (e) {
           console.warn('[notify] Falha na requisição:', e);
