@@ -223,27 +223,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         body: JSON.stringify(checkoutPayload)
       });
 
+      const responseClone = response.clone();
       let body: any = {};
       let parseError = false;
+      let responseText = '';
+
       try {
         body = await response.json();
       } catch (e) {
         parseError = true;
-        console.error('Resposta do servidor não é JSON:', e);
+        responseText = await responseClone.text();
+        console.error('Erro real da Vercel:', responseText, e);
       }
 
       if (!response.ok) {
         const fallback =
           response.status === 404
             ? 'API de checkout não encontrada.'
-            : typeof body.error === 'string'
-              ? body.error
-              : `Erro do Servidor (HTTP ${response.status}).`;
+            : responseText
+              ? `Erro no servidor: ${responseText}`
+              : typeof body.error === 'string'
+                ? body.error
+                : `Erro do Servidor (HTTP ${response.status}).`;
         throw new Error(fallback);
       }
 
       if (parseError) {
-        throw new Error('Resposta inválida do servidor de checkout. O servidor não retornou JSON válido.');
+        throw new Error('Erro no servidor. Verifique o console ou contate o suporte.');
       }
 
       const orderId = body.orderId as string | undefined;

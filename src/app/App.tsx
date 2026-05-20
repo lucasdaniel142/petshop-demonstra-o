@@ -5,6 +5,7 @@ import { Home } from '../features/catalog/Home';
 import { PrivacyPolicy } from '../shared/pages/PrivacyPolicy';
 import { InstallPWA } from '../shared/components/InstallPWA';
 import { LoadingFallback } from '../shared/components/LoadingFallback';
+import { ToastProvider } from '../shared/components/ToastProvider';
 import { ProtectedRoute } from '../features/admin/ProtectedRoute';
 
 /**
@@ -22,11 +23,12 @@ const OrderManager = lazy(() => import('../features/admin/OrderManager').then(m 
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <InstallPWA />
-        
-        {/* Suspense envolve todas as rotas para capturar o carregamento dos chunks lazy */}
-        <Suspense fallback={<LoadingFallback />}>
+      <ToastProvider>
+        <BrowserRouter>
+          <InstallPWA />
+          
+          {/* Suspense envolve todas as rotas para capturar o carregamento dos chunks lazy */}
+          <Suspense fallback={<LoadingFallback />}>
           <Routes>
             {/* --- ROTAS PÚBLICAS (Importação Normal para SEO e Performance Inicial) --- */}
             <Route path="/" element={<Home />} />
@@ -56,7 +58,8 @@ export const App: React.FC = () => {
           </Routes>
         </Suspense>
       </BrowserRouter>
-    </AuthProvider>
+    </ToastProvider>
+  </AuthProvider>
   );
 };
 

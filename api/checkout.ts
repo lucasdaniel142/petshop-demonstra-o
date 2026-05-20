@@ -18,12 +18,13 @@ function sanitizeCustomerText(str: unknown, maxLen: number): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
     const adminDb = getAdminDb(); // Garante inicialização
     const { 
       items, 
@@ -40,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 1. Validação Básica
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Carrinho vazio ou inválido' });
+      return res.status(400).json({ success: false, error: 'Carrinho vazio ou inválido' });
     }
 
     // 2. RE-CÁLCULO DE PREÇOS (PROTEÇÃO CONTRA MANIPULAÇÃO)
@@ -49,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const validatedItems = [];
 
     if (!storeId || typeof storeId !== 'string') {
-      return res.status(400).json({ error: 'Loja inválida' });
+      return res.status(400).json({ success: false, error: 'Loja inválida' });
     }
 
     // Busca todos os produtos do pedido de forma segura e compatível com Firestore
@@ -58,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .filter((id) => id.length > 0);
 
     if (productIds.length === 0) {
-      return res.status(400).json({ error: 'Carrinho inválido. IDs de produtos não informados.' });
+      return res.status(400).json({ success: false, error: 'Carrinho inválido. IDs de produtos não informados.' });
     }
 
     const productMap: Record<string, any> = {};
@@ -83,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const itemId = String(item?.id || '').trim();
       const realProduct = productMap[itemId];
       if (!realProduct) {
-        return res.status(400).json({ error: `Produto não encontrado: ${itemId || '(ID inválido)'}` });
+        return res.status(400).json({ success: false, error: `Produto não encontrado: ${itemId || '(ID inválido)'}` });
       }
 
       const quantity = Math.min(Math.max(parseInt(item.quantity) || 1, 1), 99);
@@ -106,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const roundedKm = Math.round((distanceKm || 0) * 10) / 10;
 
     if (roundedKm > DELIVERY_MAX_RADIUS_KM) {
-      return res.status(400).json({ error: 'Endereço fora da área de cobertura' });
+      return res.status(400).json({ success: false, error: 'Endereço fora da área de cobertura' });
     }
 
     if (!hasFreeShipping) {
@@ -126,11 +127,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cleanCep = String(cep || '').replace(/\D/g, '');
 
     if (!safeName || !safeAddress || cleanPhone.length < 10) {
-      return res.status(400).json({ error: 'Dados do cliente inválidos ou incompletos' });
+      return res.status(400).json({ success: false, error: 'Dados do cliente inválidos ou incompletos' });
     }
 
     if (cleanCep.length !== 8) {
-      return res.status(400).json({ error: 'CEP inválido' });
+      return res.status(400).json({ success: false, error: 'CEP inválido' });
     }
 
     // 4. Gravação Segura no Firestore
@@ -165,9 +166,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error: any) {
-    console.error('[API Checkout] Erro Crítico:', error);
+    console.error('ERRO CRÍTICO CHECKOUT:', error);
+    
+    // Garante que o Content-Type está definido mesmo em caso de erro antes do setHeader
+    try { res.setHeader('Content-Type', 'application/json; charset=utf-8'); } catch { /* já definido */ }
+    
     return res.status(500).json({
+      success: false,
       error: error.message || 'Erro interno desconhecido',
+      detail: 'Falha interna na API de checkout',
       code: error.code || 'INTERNAL_SERVER_ERROR',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });

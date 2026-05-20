@@ -18,7 +18,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'icons/*.svg', 'icons/*.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'icons/*.svg', 'icons/*.png', 'icons/*.webp'],
       manifest: {
         name: 'Supermercado Sagrada Família',
         short_name: 'Sagrada Família',
@@ -28,9 +28,9 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         icons: [
-          { src: 'icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
-          { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
-          { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+          { src: 'icons/icon-sagrada-familia.webp', sizes: '192x192', type: 'image/webp', purpose: 'any' },
+          { src: 'icons/icon-sagrada-familia.webp', sizes: '512x512', type: 'image/webp', purpose: 'any' },
+          { src: 'icons/icon-sagrada-familia.webp', sizes: '512x512', type: 'image/webp', purpose: 'maskable' },
         ]
       }
     })

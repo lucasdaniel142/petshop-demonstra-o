@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getMessaging, isSupported } from 'firebase/messaging';
 
@@ -32,7 +32,10 @@ if (import.meta.env.DEV) {
 }
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false,
+});
 export const auth = getAuth(app);
 
 let messagingInstance: ReturnType<typeof getMessaging> | null = null;
