@@ -32,9 +32,9 @@ fi
 
 if [ -z "${VERCEL_TOKEN:-}" ]; then
   echo "[deploy] Aviso: VERCEL_TOKEN não definido. O Vercel CLI pode pedir login interativo." >&2
+  npx vercel deploy --prod --confirm --cwd "$ROOT_DIR"
+else
+  npx vercel deploy --prod --confirm --token "$VERCEL_TOKEN" --cwd "$ROOT_DIR"
 fi
-
-npx vercel deploy --prod --confirm --token "${VERCEL_TOKEN:-}" \
-  --cwd "$ROOT_DIR"
 
 echo "[deploy] Concluído."
