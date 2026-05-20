@@ -48,8 +48,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let hasFreeShipping = false;
     const validatedItems = [];
 
+    if (!storeId || typeof storeId !== 'string') {
+      return res.status(400).json({ error: 'Loja inválida' });
+    }
+
     // Busca todos os produtos do pedido de forma segura e compatível com Firestore
-    const productIds = items.map((item: any) => item.id).filter(Boolean);
+    const productIds = items
+      .map((item: any) => String(item?.id || '').trim())
+      .filter((id) => id.length > 0);
+
+    if (productIds.length === 0) {
+      return res.status(400).json({ error: 'Carrinho inválido. IDs de produtos não informados.' });
+    }
+
     const productMap: Record<string, any> = {};
 
     const chunkArray = <T,>(arr: T[], size: number): T[][] => {
@@ -60,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return result;
     };
 
-    const productIdChunks = chunkArray(productIds, 10);
+    const productIdChunks = chunkArray(productIds, 10).filter((chunk) => chunk.length > 0);
     for (const chunk of productIdChunks) {
       const productsSnapshot = await adminDb.collection('produtos').where('__name__', 'in', chunk).get();
       productsSnapshot.forEach(doc => {
@@ -69,9 +80,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     for (const item of items) {
-      const realProduct = productMap[item.id];
+      const itemId = String(item?.id || '').trim();
+      const realProduct = productMap[itemId];
       if (!realProduct) {
-        return res.status(400).json({ error: `Produto não encontrado: ${item.id}` });
+        return res.status(400).json({ error: `Produto não encontrado: ${itemId || '(ID inválido)'}` });
       }
 
       const quantity = Math.min(Math.max(parseInt(item.quantity) || 1, 1), 99);

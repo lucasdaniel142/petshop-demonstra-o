@@ -5,14 +5,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // --- 1. CORS CONFIGURATION ---
   const ALLOWED_ORIGIN = process.env.VITE_APP_URL || '';
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  const origin = req.headers.origin || '';
-  
-  // Permite localhost em desenvolvimento ou o domínio configurado
-  if (origin.includes('localhost') || origin === ALLOWED_ORIGIN) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  const origin = String(req.headers.origin || '');
+  const allowedOrigins = [ALLOWED_ORIGIN, 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000'];
+
+  const chosenOrigin =
+    origin && (origin.includes('localhost') || allowedOrigins.includes(origin))
+      ? origin
+      : ALLOWED_ORIGIN || origin || '';
+
+  if (chosenOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', chosenOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else {
-    // Fallback de segurança: apenas o próprio domínio se nada for especificado
-    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN || origin);
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -45,17 +50,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('[API Notify] Token inválido ou expirado:', error.message);
       return res.status(401).json({ error: 'Token inválido ou expirado.' });
     }
-    
-    // Proteção básica contra Replay: Verificar se o token foi emitido há mais de 5 minutos
-    // (Ajuste conforme a necessidade de sincronia de relógio)
-    const now = Math.floor(Date.now() / 1000);
-    if (now - decodedToken.iat > 300) { 
-      return res.status(403).json({ error: 'Token expirado para esta operação (Replay Protection).' });
-    }
 
     // Verificar se o usuário é realmente um admin no Firestore
     const adminDoc = await adminDb.collection('admins').doc(decodedToken.uid).get();
-    if (!adminDoc.exists || adminDoc.data()?.role !== 'admin') {
+    if (!adminDoc.exists || !['admin', 'superadmin'].includes(adminDoc.data()?.role)) {
       console.warn(`[Security] Tentativa de acesso não autorizado por UID: ${decodedToken.uid}`);
       return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
     }

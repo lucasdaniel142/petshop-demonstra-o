@@ -1,0 +1,12 @@
+{
+  "items": [{"id":"test-id","quantity":1}],
+  "customerName":"Teste",
+  "customerPhone":"82999999999",
+  "deliveryAddress":"Rua Teste 123",
+  "cep":"57000000",
+  "storeId":"benedito_bentes",
+  "paymentMethod":"dinheiro",
+  "changeFor":"0",
+  "distanceKm":1.2,
+  "fcmToken":null
+}

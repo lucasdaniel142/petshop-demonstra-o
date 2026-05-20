@@ -217,9 +217,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
 
       const responseText = await response.text();
       let body: any = {};
+      let parseError = false;
+
       try {
         body = JSON.parse(responseText);
       } catch (e) {
+        parseError = true;
         console.error('Resposta do servidor não é JSON:', responseText);
       }
 
@@ -229,13 +232,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
             ? 'API de checkout não encontrada.'
             : typeof body.error === 'string'
               ? body.error
-              : `Erro do Servidor (HTTP ${response.status}): ${responseText.slice(0, 100)}...`;
+              : `Erro do Servidor (HTTP ${response.status}): ${responseText.slice(0, 120)}...`;
         throw new Error(fallback);
       }
 
       const orderId = body.orderId as string | undefined;
       const serverSubtotal = body.subtotal as number | undefined;
       const serverDeliveryFee = body.deliveryFee as number | undefined;
+
+      if (parseError) {
+        throw new Error(`Resposta inválida do servidor de checkout. (${response.status}) ${responseText.slice(0, 120)}...`);
+      }
 
       if (orderId == null || serverSubtotal == null || serverDeliveryFee == null) {
         throw new Error('Resposta inválida do servidor de checkout.');
