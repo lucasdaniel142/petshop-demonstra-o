@@ -59,24 +59,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // --- 3. NOTIFICATION LOGIC ---
-    const { fcmToken, title, body, link } = req.body;
+    const { fcmToken, topic, title, body, link } = req.body;
 
-    if (!fcmToken || !title || !body) {
-      return res.status(400).json({ error: 'Token, título e corpo são obrigatórios' });
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ error: 'Campo obrigatório ausente: title' });
     }
 
-    const message = {
-      token: fcmToken,
+    if (!body || typeof body !== 'string' || !body.trim()) {
+      return res.status(400).json({ error: 'Campo obrigatório ausente: body' });
+    }
+
+    if ((!fcmToken || typeof fcmToken !== 'string' || !fcmToken.trim()) && (!topic || typeof topic !== 'string' || !topic.trim())) {
+      return res.status(400).json({ error: 'Campo obrigatório ausente: fcmToken ou topic' });
+    }
+
+    const message: any = {
       notification: {
-        title,
-        body,
+        title: title.trim(),
+        body: body.trim(),
       },
       webpush: {
         fcmOptions: {
-          link: link || '/'
-        }
-      }
+          link: typeof link === 'string' && link.trim() ? link.trim() : '/',
+        },
+      },
     };
+
+    if (fcmToken && typeof fcmToken === 'string' && fcmToken.trim()) {
+      message.token = fcmToken.trim();
+    } else {
+      message.topic = topic.trim();
+    }
 
     const response = await adminMessaging.send(message);
     return res.status(200).json({ success: true, messageId: response });

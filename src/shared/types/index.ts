@@ -55,11 +55,14 @@ export interface ManagedProduct {
   freteGratis?: boolean;
 }
 
+export type AdminStoreAccess = 'universal' | 'benedito-bentes' | 'salvador-lyra' | 'vergel';
+
 export interface AdminUser {
   id: string;
   nome: string;
   email: string;
   unidade: string;
+  storeAccess?: AdminStoreAccess;
   role: 'admin';
   createdAt?: unknown; 
 }

@@ -147,6 +147,7 @@ export const PriceManager: React.FC = () => {
         body: JSON.stringify({
           title: '🚨 Novas Ofertas Disponíveis!',
           body: 'Corra para o app e confira os produtos com desconto especial hoje.',
+          topic: 'ofertas',
           link: '/'
         }),
       });

@@ -50,7 +50,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [houseNumber, setHouseNumber] = useState('');
+  const [referencePoint, setReferencePoint] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
   const [changeFor, setChangeFor] = useState('');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -65,7 +67,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const isNameInvalid = checkoutError !== null && !customerName.trim();
-  const isAddressInvalid = checkoutError !== null && !deliveryAddress.trim();
+  const isAddressInvalid = checkoutError !== null && !streetAddress.trim();
+  const isHouseNumberInvalid = checkoutError !== null && !houseNumber.trim();
   const isCepInvalid = checkoutError !== null && cep.replace(/\D/g, '').length !== 8;
 
   const handleCepLookup = useCallback(async (rawCep: string) => {
@@ -83,7 +86,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         return;
       }
 
-      setDeliveryAddress((address.formatted || '') + ', Nº ');
+      setStreetAddress(address.formatted || '');
+      setHouseNumber('');
+      setReferencePoint('');
 
       const geocodeString = `${address.logradouro}, ${address.bairro}, ${address.localidade}, ${address.uf}, Brasil`;
       const coords = await geocodeAddress(geocodeString);
@@ -147,9 +152,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     const cleanPhone = customerPhone.replace(/\D/g, '');
     const isPhoneValid = cleanPhone.length >= 10;
 
-    if (!customerName.trim() || !isPhoneValid || !deliveryAddress.trim() || cep.replace(/\D/g, '').length !== 8) {
+    if (!customerName.trim() || !isPhoneValid || !streetAddress.trim() || !houseNumber.trim() || cep.replace(/\D/g, '').length !== 8) {
       if (!isPhoneValid && customerPhone.trim()) {
         setCheckoutError('Telefone inválido. Digite DDD + número (mínimo 10 dígitos).');
+      } else if (!streetAddress.trim() || !houseNumber.trim()) {
+        setCheckoutError('Por favor, informe Rua/Bairro e Número da casa para concluir o pedido.');
       } else {
         setCheckoutError('Por favor, informe Nome, Telefone (com DDD), CEP e endereço para concluir o pedido.');
       }
@@ -184,11 +191,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     }
 
     const sanitizedName = sanitizeCustomerText(customerName, 100);
-    const sanitizedAddress = sanitizeCustomerText(deliveryAddress, 500);
-
+    const sanitizedAddress = sanitizeCustomerText(`${streetAddress.trim()}${houseNumber.trim() ? `, Nº ${houseNumber.trim()}` : ''}${referencePoint.trim() ? ` | Referência: ${referencePoint.trim()}` : ''}`, 500);
+    const combinedDeliveryAddress = sanitizedAddress;
     setIsSubmitting(true);
     setCheckoutError(null);
 
+    let checkoutPayload: Record<string, unknown> | null = null;
     try {
       let changeForNum: number | null = null;
       if (paymentMethod === 'Dinheiro' && changeFor) {
@@ -196,11 +204,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       }
 
       // NOVO FLUXO: Enviar para API em vez de gravar direto no Firestore
-      const checkoutPayload = {
+      checkoutPayload = {
         items: items.map(item => ({ id: item.id, quantity: item.quantity })),
         customerName: sanitizedName,
         customerPhone: cleanPhone,
-        deliveryAddress: sanitizedAddress,
+        deliveryAddress: combinedDeliveryAddress,
         cep: cep.replace(/\D/g, ''),
         storeId: selectedStoreId,
         paymentMethod: paymentMethod === 'Dinheiro' ? 'dinheiro' : paymentMethod === 'Pix' ? 'pix_presencial' : paymentMethod === 'Ticket Alimentação/Refeição' ? 'ticket' : 'maquininha',
@@ -215,15 +223,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         body: JSON.stringify(checkoutPayload)
       });
 
-      const responseText = await response.text();
       let body: any = {};
       let parseError = false;
-
       try {
-        body = JSON.parse(responseText);
+        body = await response.json();
       } catch (e) {
         parseError = true;
-        console.error('Resposta do servidor não é JSON:', responseText);
+        console.error('Resposta do servidor não é JSON:', e);
       }
 
       if (!response.ok) {
@@ -232,17 +238,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
             ? 'API de checkout não encontrada.'
             : typeof body.error === 'string'
               ? body.error
-              : `Erro do Servidor (HTTP ${response.status}): ${responseText.slice(0, 120)}...`;
+              : `Erro do Servidor (HTTP ${response.status}).`;
         throw new Error(fallback);
+      }
+
+      if (parseError) {
+        throw new Error('Resposta inválida do servidor de checkout. O servidor não retornou JSON válido.');
       }
 
       const orderId = body.orderId as string | undefined;
       const serverSubtotal = body.subtotal as number | undefined;
       const serverDeliveryFee = body.deliveryFee as number | undefined;
-
-      if (parseError) {
-        throw new Error(`Resposta inválida do servidor de checkout. (${response.status}) ${responseText.slice(0, 120)}...`);
-      }
 
       if (orderId == null || serverSubtotal == null || serverDeliveryFee == null) {
         throw new Error('Resposta inválida do servidor de checkout.');
@@ -253,7 +259,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         items,
         serverSubtotal,
         sanitizedName,
-        deliveryAddress,
+        combinedDeliveryAddress,
         paymentMethod,
         selectedStoreLabel,
         storePhone,
@@ -273,12 +279,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       clearCart();
       setIsModalOpen(false);
       setCustomerName('');
-      setDeliveryAddress('');
+      setStreetAddress('');
+      setHouseNumber('');
+      setReferencePoint('');
       setCep('');
       setChangeFor('');
       toggleCart();
     } catch (err: any) {
-      console.error('Erro ao salvar pedido:', err);
+      console.error('Erro ao salvar pedido:', err, { checkoutPayload });
       setCheckoutError(err.message || 'Ocorreu um erro ao salvar seu pedido. Tente novamente.');
     } finally {
       setIsSubmitting(false);
@@ -461,12 +469,28 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                 {delivery && delivery.isInRange && <p className="text-green-600 text-[12px] mt-1 flex items-center gap-1"><MapPin size={12} /> {delivery.description} — R$ {delivery.fee.toFixed(2).replace('.', ',')}</p>}
               </div>
 
-              <div>
-                <label htmlFor="cart-address" className="flex justify-between items-center text-[13px] font-[600] text-text mb-2">
-                  <span>Endereço de Entrega</span>
-                  <span className={isAddressInvalid ? 'text-red-600 font-bold opacity-100 transition-all duration-300' : 'text-red-500 opacity-50'}>* Obrigatório preencher.</span>
-                </label>
-                <textarea id="cart-address" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors resize-none h-[80px] ${isAddressInvalid ? 'border-red-500 bg-red-50' : 'border-border focus:border-primary'}`} placeholder="Rua, número, bairro, cidade, complemento..." />
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label htmlFor="cart-street-address" className="flex justify-between items-center text-[13px] font-[600] text-text mb-2">
+                    <span>Rua / Bairro</span>
+                    <span className={isAddressInvalid ? 'text-red-600 font-bold opacity-100 transition-all duration-300' : 'text-red-500 opacity-50'}>* Obrigatório.</span>
+                  </label>
+                  <textarea id="cart-street-address" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors resize-none h-[80px] ${isAddressInvalid ? 'border-red-500 bg-red-50' : 'border-border focus:border-primary'}`} placeholder="Rua, bairro, cidade" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="cart-house-number" className="flex justify-between items-center text-[13px] font-[600] text-text mb-2">
+                      <span>Número da Casa</span>
+                      <span className={isHouseNumberInvalid ? 'text-red-600 font-bold opacity-100 transition-all duration-300' : 'text-red-500 opacity-50'}>* Obrigatório.</span>
+                    </label>
+                    <input id="cart-house-number" type="tel" inputMode="numeric" pattern="[0-9]*" value={houseNumber} onChange={(e) => setHouseNumber(e.target.value.replace(/\D/g, ''))} className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors ${isHouseNumberInvalid ? 'border-red-500 bg-red-50' : 'border-border focus:border-primary'}`} placeholder="Número" />
+                  </div>
+                  <div>
+                    <label htmlFor="cart-reference-point" className="text-[13px] font-[600] text-text mb-2">Ponto de Referência <span className="text-muted text-[11px]">(opcional)</span></label>
+                    <input id="cart-reference-point" type="text" value={referencePoint} onChange={(e) => setReferencePoint(e.target.value)} className="w-full rounded-[10px] border border-border px-4 py-3 text-[14px] outline-none focus:border-primary transition-colors" placeholder="Ponto de referência" />
+                  </div>
+                </div>
               </div>
 
               <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">

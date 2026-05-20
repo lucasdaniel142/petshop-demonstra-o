@@ -5,8 +5,7 @@ import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { db, firebaseConfig } from '../../shared/lib/firebase';
 import { FeedbackBanner } from '../../shared/ui/FeedbackBanner';
-import type { AdminUser, FeedbackState } from '../../shared/types';
-import { ADMIN_UNIDADES } from '../../shared/utils/constants';
+import type { AdminUser, AdminStoreAccess, FeedbackState } from '../../shared/types';
 
 const validatePassword = (senha: string): string | null => {
   if (senha.length < 8) return 'A senha deve ter pelo menos 8 caracteres.';
@@ -14,6 +13,13 @@ const validatePassword = (senha: string): string | null => {
   if (!/[0-9]/.test(senha)) return 'A senha deve conter pelo menos um número.';
   return null;
 };
+
+const ADMIN_ACCESS_OPTIONS: ReadonlyArray<{ id: AdminStoreAccess; label: string }> = [
+  { id: 'universal', label: 'Administrador Universal' },
+  { id: 'benedito-bentes', label: 'Benedito Bentes' },
+  { id: 'salvador-lyra', label: 'Salvador Lyra' },
+  { id: 'vergel', label: 'Vergel' },
+];
 
 const getSecondaryApp = () => {
   const NAME = 'SecondaryApp';
@@ -51,7 +57,7 @@ export const TeamManager: React.FC = () => {
   const [feedback, setFeedback] = useState<FeedbackState>(null);
   const [removeTarget, setRemoveTarget] = useState<AdminUser | null>(null);
 
-  const [formData, setFormData] = useState({ nome: '', email: '', senha: '', unidade: 'geral' });
+  const [formData, setFormData] = useState({ nome: '', email: '', senha: '', storeAccess: 'universal' as AdminStoreAccess });
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,12 +84,13 @@ export const TeamManager: React.FC = () => {
       await setDoc(doc(db, 'admins', user.uid), {
         nome: formData.nome,
         email: formData.email,
-        unidade: formData.unidade,
+        unidade: formData.storeAccess,
+        storeAccess: formData.storeAccess,
         role: 'admin',
         createdAt: serverTimestamp(),
       });
       setFeedback({ type: 'success', message: 'Cadastrado!' });
-      setFormData({ nome: '', email: '', senha: '', unidade: 'geral' });
+      setFormData({ nome: '', email: '', senha: '', storeAccess: 'universal' });
     } catch {
       setFeedback({ type: 'error', message: 'Erro ao cadastrar.' });
     } finally {
@@ -103,16 +110,39 @@ export const TeamManager: React.FC = () => {
             <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome:e.target.value})} placeholder="Nome" className="w-full bg-[#F0F2F2] px-4 py-2.5 rounded-[8px] outline-none" />
             <input type="email" value={formData.email} onChange={e => setFormData({...formData, email:e.target.value})} placeholder="E-mail" className="w-full bg-[#F0F2F2] px-4 py-2.5 rounded-[8px] outline-none" />
             <input type="password" value={formData.senha} onChange={e => setFormData({...formData, senha:e.target.value})} placeholder="Senha" className="w-full bg-[#F0F2F2] px-4 py-2.5 rounded-[8px] outline-none" />
+            <div>
+              <label htmlFor="admin-store-access" className="block text-[13px] font-[600] text-text mb-2">Nível de Acesso</label>
+              <select
+                id="admin-store-access"
+                value={formData.storeAccess}
+                onChange={e => setFormData({...formData, storeAccess: e.target.value as AdminStoreAccess})}
+                className="w-full bg-[#F0F2F2] border border-border rounded-[8px] px-4 py-3 text-[14px] outline-none"
+              >
+                {ADMIN_ACCESS_OPTIONS.map((access) => (
+                  <option key={access.id} value={access.id}>{access.label}</option>
+                ))}
+              </select>
+            </div>
             {passwordError && <p className="text-red-500 text-[12px]">{passwordError}</p>}
             <button disabled={isSubmitting} className="w-full bg-primary text-white py-3 rounded-[8px] font-extrabold">{isSubmitting ? 'Cadastrando...' : 'Cadastrar'}</button>
           </form>
         </div>
         <div className="lg:col-span-2 bg-white rounded-[12px] border border-border shadow-sm overflow-hidden">
           <table className="w-full text-left">
-            <thead className="bg-[#FAFAFA] border-b border-border text-[12px] text-muted uppercase"><tr className="font-[600]"><th className="p-4">Colaborador</th><th className="p-4 text-right">Ação</th></tr></thead>
+            <thead className="bg-[#FAFAFA] border-b border-border text-[12px] text-muted uppercase">
+              <tr className="font-[600]">
+                <th className="p-4">Colaborador</th>
+                <th className="p-4">Acesso</th>
+                <th className="p-4 text-right">Ação</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-border">
               {admins.map(admin => (
-                <tr key={admin.id} className="hover:bg-gray-50"><td className="p-4"><div className="flex flex-col"><span className="font-bold">{admin.nome}</span><span className="text-xs">{admin.email}</span></div></td><td className="p-4 text-right"><button onClick={() => setRemoveTarget(admin)} className="text-red-500 p-2"><Trash2 size={18} /></button></td></tr>
+                <tr key={admin.id} className="hover:bg-gray-50">
+                  <td className="p-4"><div className="flex flex-col"><span className="font-bold">{admin.nome}</span><span className="text-xs">{admin.email}</span></div></td>
+                  <td className="p-4 text-sm text-muted">{ADMIN_ACCESS_OPTIONS.find((option) => option.id === admin.storeAccess)?.label || 'Administrador Universal'}</td>
+                  <td className="p-4 text-right"><button onClick={() => setRemoveTarget(admin)} className="text-red-500 p-2"><Trash2 size={18} /></button></td>
+                </tr>
               ))}
             </tbody>
           </table>

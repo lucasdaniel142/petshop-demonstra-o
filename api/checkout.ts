@@ -160,7 +160,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       orderId: docRef.id,
       subtotal: orderData.subtotal,
       deliveryFee: orderData.deliveryFee,
-      total: orderData.total 
+      total: orderData.total,
+      url: `/orders/${docRef.id}`
     });
 
   } catch (error: any) {

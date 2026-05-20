@@ -2,18 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { Download, X, Share, PlusSquare } from 'lucide-react';
 
 const DISMISS_KEY = 'pwa-install-dismissed';
-const VISITS_KEY = 'pwa-visit-count';
+const IGNORE_KEY = 'pwa-install-ignored-at';
+const IGNORE_DURATION_MS = 24 * 60 * 60 * 1000;
 
 export const InstallPWA: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isIosGuide, setIsIosGuide] = useState(false);
 
+  const isPromptIgnored = () => {
+    try {
+      const stored = Number(localStorage.getItem(IGNORE_KEY) || '0');
+      return stored > 0 && Date.now() - stored < IGNORE_DURATION_MS;
+    } catch {
+      return false;
+    }
+  };
+
   useEffect(() => {
     const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
 
-    if (isInStandaloneMode) {
+    if (isInStandaloneMode || isPromptIgnored()) {
       setIsVisible(false);
       return;
     }
@@ -21,8 +31,8 @@ export const InstallPWA: React.FC = () => {
     try {
       if (localStorage.getItem(DISMISS_KEY) === '1') return;
 
-      const visits = Number(localStorage.getItem(VISITS_KEY) || '0') + 1;
-      localStorage.setItem(VISITS_KEY, String(visits));
+      const visits = Number(localStorage.getItem('pwa-visit-count') || '0') + 1;
+      localStorage.setItem('pwa-visit-count', String(visits));
       if (visits < 2) return;
     } catch {
       /* modo privado / storage indisponível */
@@ -64,9 +74,9 @@ export const InstallPWA: React.FC = () => {
     setIsVisible(false);
   };
 
-  const handleDismiss = () => {
+  const handleIgnore = () => {
     try {
-      localStorage.setItem(DISMISS_KEY, '1');
+      localStorage.setItem(IGNORE_KEY, String(Date.now()));
     } catch {
       /* ignore */
     }
@@ -96,12 +106,17 @@ export const InstallPWA: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={handleDismiss}
+            onClick={handleIgnore}
             className="p-2 min-w-11 min-h-11 flex items-center justify-center hover:bg-white/10 rounded-lg transition-colors"
-            aria-label="Dispensar instalação do app"
+            aria-label="Ignorar instalação do app"
           >
             <X size={18} />
           </button>
+        </div>
+
+        <div className="rounded-2xl bg-white/10 p-4 border border-white/15">
+          <p className="text-[13px] font-[600]">Quer abrir a loja direto como um app?</p>
+          <p className="text-[12px] opacity-90 mt-1">Receba o atalho na tela inicial e acesse sua loja sem esperar o carregamento.</p>
         </div>
 
         {isIosGuide ? (
@@ -116,13 +131,22 @@ export const InstallPWA: React.FC = () => {
             </p>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={handleInstallClick}
-            className="w-full min-h-11 bg-white text-primary py-2.5 rounded-xl font-[800] text-[13px] hover:bg-gray-100 shadow-sm"
-          >
-            Instalar agora
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleInstallClick}
+              className="w-full min-h-11 bg-white text-primary py-2.5 rounded-xl font-[800] text-[13px] hover:bg-gray-100 shadow-sm"
+            >
+              Instalar agora
+            </button>
+            <button
+              type="button"
+              onClick={handleIgnore}
+              className="w-full min-h-11 bg-white/10 text-white py-2.5 rounded-xl font-[800] text-[13px] hover:bg-white/20 border border-white/20 shadow-sm"
+            >
+              Ignorar
+            </button>
+          </div>
         )}
       </div>
     </div>
