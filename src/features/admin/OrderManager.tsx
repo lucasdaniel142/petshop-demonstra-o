@@ -19,11 +19,11 @@ import { db, auth } from '../../shared/lib/firebase';
 import type { Order, PaymentMethodType, OrderStatus } from '../../shared/types';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100' },
-  preparing: { label: 'Em Separação', color: 'text-blue-700', bg: 'bg-blue-100' },
-  shipped: { label: 'Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100' },
-  delivered: { label: 'Entregue', color: 'text-green-700', bg: 'bg-green-100' },
-  cancelled: { label: 'Cancelado', color: 'text-red-700', bg: 'bg-red-100' },
+  pending: { label: '🔔 Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100' },
+  preparing: { label: '📦 Em Separação', color: 'text-blue-700', bg: 'bg-blue-100' },
+  shipped: { label: '🛵 Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100' },
+  delivered: { label: '✅ Entregue', color: 'text-green-700', bg: 'bg-green-100' },
+  cancelled: { label: '❌ Cancelado', color: 'text-red-700', bg: 'bg-red-100' },
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -81,8 +81,31 @@ function escapeHtml(raw: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function formatCurrency(value: number): string {
-  return `R$ ${value.toFixed(2).replace('.', ',')}`;
+function formatCurrency(value: any): string {
+  if (value === null || value === undefined) return 'R$ 0,00';
+  let num = 0;
+  if (typeof value === 'object') {
+    if ('valor' in value) {
+      num = typeof value.valor === 'number' ? value.valor : parseFloat(value.valor) || 0;
+    }
+  } else {
+    num = typeof value === 'number' ? value : parseFloat(value) || 0;
+  }
+  if (isNaN(num)) return 'R$ 0,00';
+  return `R$ ${num.toFixed(2).replace('.', ',')}`;
+}
+
+function getItemPrice(item: any): number {
+  if (!item || item.price === null || item.price === undefined) return 0;
+  let price = 0;
+  if (typeof item.price === 'object') {
+    if ('valor' in item.price) {
+      price = typeof item.price.valor === 'number' ? item.price.valor : parseFloat(item.price.valor) || 0;
+    }
+  } else {
+    price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+  }
+  return isNaN(price) ? 0 : price;
 }
 
 function formatDate(timestamp: any): string {
@@ -182,14 +205,14 @@ const OrderCard: React.FC<{
           <CreditCard size={14} className="text-muted shrink-0" />
           <span className="text-xs text-muted">
             {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}
-            {order.changeFor && ` (Troco p/ R$ ${order.changeFor.toFixed(2).replace('.', ',')})`}
+            {order.changeFor && ` (Troco p/ ${formatCurrency(order.changeFor)})`}
           </span>
         </div>
         <div className="border-t border-dashed border-gray-200 pt-3 space-y-1.5">
           {order.items.map((item, idx) => (
             <div key={idx} className="flex justify-between text-xs">
               <span className="text-text">{item.quantity}× {item.name}</span>
-              <span className="text-muted font-medium">{formatCurrency(item.price * item.quantity)}</span>
+              <span className="text-muted font-medium">{formatCurrency(getItemPrice(item) * item.quantity)}</span>
             </div>
           ))}
         </div>
@@ -275,7 +298,7 @@ export const OrderManager: React.FC = () => {
     const itemsHtml = order.items
       .map(
         (item) =>
-          `<tr><td style="text-align:left;padding:2px 0">${item.quantity}× ${escapeHtml(item.name)}</td><td style="text-align:right;padding:2px 0">${escapeHtml(formatCurrency(item.price * item.quantity))}</td></tr>`
+          `<tr><td style="text-align:left;padding:2px 0">${item.quantity}× ${escapeHtml(item.name)}</td><td style="text-align:right;padding:2px 0">${escapeHtml(formatCurrency(getItemPrice(item) * item.quantity))}</td></tr>`
       )
       .join('');
 

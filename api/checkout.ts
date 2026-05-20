@@ -88,7 +88,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const quantity = Math.min(Math.max(parseInt(item.quantity) || 1, 1), 99);
-      const price = realProduct.precos?.[storeId] || realProduct.preco || 0;
+      
+      let price = 0;
+      const storePriceObj = realProduct.precos?.[storeId];
+      if (storePriceObj && typeof storePriceObj === 'object') {
+        if ('valor' in storePriceObj) {
+          price = typeof storePriceObj.valor === 'number' ? storePriceObj.valor : parseFloat(storePriceObj.valor) || 0;
+        }
+      } else if (realProduct.preco !== undefined) {
+        price = typeof realProduct.preco === 'number' ? realProduct.preco : parseFloat(realProduct.preco) || 0;
+      }
+      
+      if (isNaN(price) || price < 0) {
+        price = 0;
+      }
       
       if (realProduct.freteGratis) hasFreeShipping = true;
 
