@@ -19,6 +19,7 @@ const PriceManager = lazy(() => import('../features/admin/PriceManager').then(m 
 const TeamManager = lazy(() => import('../features/admin/TeamManager').then(m => ({ default: m.TeamManager })));
 const ProductManager = lazy(() => import('../features/admin/ProductManager').then(m => ({ default: m.ProductManager })));
 const OrderManager = lazy(() => import('../features/admin/OrderManager').then(m => ({ default: m.OrderManager })));
+const SettingsManager = lazy(() => import('../features/admin/SettingsManager').then(m => ({ default: m.SettingsManager })));
 
 export const App: React.FC = () => {
   return (
@@ -51,6 +52,7 @@ export const App: React.FC = () => {
               <Route path="equipe" element={<TeamManager />} />
               <Route path="produtos" element={<ProductManager />} />
               <Route path="pedidos" element={<OrderManager />} />
+              <Route path="configuracoes" element={<SettingsManager />} />
             </Route>
 
             {/* Redirecionamento de rotas não encontradas para Home */}

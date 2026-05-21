@@ -155,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       total: Math.round(total * 100) / 100,
       customerName: safeName,
       customerPhone: cleanPhone,
+      phone: cleanPhone, // Campo adicional para compatibilidade com OrderManager
       deliveryAddress: safeAddress,
       cep: cleanCep,
       storeId,

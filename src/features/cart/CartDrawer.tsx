@@ -41,11 +41,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     setDeliveryInfo,
   } = useCart();
 
-  const hasFreeShipping = items.some(item => item.freteGratis);
-  const calculatedDelivery = delivery ? calculateDeliveryFee(delivery.distanceKm, hasFreeShipping) : null;
+  // Separar itens com e sem frete grátis
+  const itemsWithFreeShipping = items.filter(item => item.freteGratis);
+  const itemsWithoutFreeShipping = items.filter(item => !item.freteGratis);
+
+  const subtotalFreeItems = itemsWithFreeShipping.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotalNonFreeItems = itemsWithoutFreeShipping.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const hasFreeShippingItems = itemsWithFreeShipping.length > 0;
+  const hasNonFreeShippingItems = itemsWithoutFreeShipping.length > 0;
+
+  // Calcular frete apenas para itens sem frete grátis
+  const calculatedDelivery = hasNonFreeShippingItems && delivery ? calculateDeliveryFee(delivery.distanceKm, false, subtotalNonFreeItems) : null;
   const activeDelivery = calculatedDelivery || delivery;
-  const deliveryFee = activeDelivery?.fee ?? (hasFreeShipping ? 0 : DELIVERY_BASE_FEE);
-  const totalGeral = cartTotal + deliveryFee;
+  const deliveryFee = hasNonFreeShippingItems ? (activeDelivery?.fee ?? DELIVERY_BASE_FEE) : 0;
+  const totalGeral = subtotalFreeItems + subtotalNonFreeItems + deliveryFee;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -99,7 +109,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
       }
 
       const distanceKm = haversineDistance(STORE_COORDINATES[selectedStoreId], coords);
-      const result = calculateDeliveryFee(distanceKm, hasFreeShipping);
+      const result = calculateDeliveryFee(distanceKm, hasFreeShippingItems, subtotalNonFreeItems);
       setDeliveryInfo(result);
 
       if (!result.isInRange) {
@@ -110,7 +120,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     } finally {
       setIsLoadingCep(false);
     }
-  }, [setDeliveryInfo, selectedStoreId, hasFreeShipping]);
+  }, [setDeliveryInfo, selectedStoreId, hasFreeShippingItems, subtotalNonFreeItems]);
 
   const lastCepLookupRef = useRef<number>(0);
 
@@ -271,7 +281,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         storePhone,
         serverDeliveryFee,
         changeFor || undefined,
-        !delivery && !hasFreeShipping // isFallback flag
+        !delivery && !hasFreeShippingItems // isFallback flag
       );
 
       if (!link) {
@@ -280,17 +290,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
         return;
       }
 
-      window.open(link, '_blank', 'noopener,noreferrer');
-
-      clearCart();
-      setIsModalOpen(false);
-      setCustomerName('');
-      setStreetAddress('');
-      setHouseNumber('');
-      setReferencePoint('');
-      setCep('');
-      setChangeFor('');
-      toggleCart();
+      // Pequeno delay para garantir que o navegador processe o window.open
+      setTimeout(() => {
+        clearCart();
+        setIsModalOpen(false);
+        setCustomerName('');
+        setStreetAddress('');
+        setHouseNumber('');
+        setReferencePoint('');
+        setCep('');
+        setChangeFor('');
+        toggleCart();
+      }, 100);
     } catch (err: any) {
       console.error('Erro ao salvar pedido:', err, { checkoutPayload });
       setCheckoutError(err.message || 'Ocorreu um erro ao salvar seu pedido. Tente novamente.');
@@ -395,7 +406,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
                 <span>Taxa de Entrega</span>
                 {delivery ? (
                   <MapPin size={12} className="text-primary" />
-                ) : !hasFreeShipping && (
+                ) : !hasFreeShippingItems && (
                   <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">Sujeita a confirmação</span>
                 )}
               </div>

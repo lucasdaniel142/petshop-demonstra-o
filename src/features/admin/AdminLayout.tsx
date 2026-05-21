@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Store, Tags, Users, LogOut, Package, ClipboardList } from 'lucide-react';
+import { Store, Tags, Users, LogOut, Package, ClipboardList, Settings } from 'lucide-react';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { BRAND } from '../../shared/config/brand';
 
@@ -82,6 +82,20 @@ export const AdminLayout: React.FC = () => {
           >
             <Package size={18} />
             Gerenciar Produtos
+          </NavLink>
+
+          <NavLink
+            to="/admin/configuracoes"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-[8px] text-[14px] font-[600] transition-colors ${
+                isActive
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-muted hover:bg-[#F0F2F2] hover:text-text'
+              }`
+            }
+          >
+            <Settings size={18} />
+            Configurações
           </NavLink>
         </nav>
 

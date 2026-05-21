@@ -3,7 +3,7 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-comp
 
 // Como o SW roda num contexto isolado (não tem acesso ao import.meta.env do Vite),
 // uma forma simples é fazer fetch das configurações, ou você pode
-// deixar essas configs públicas hardcoded aqui, já que a config do Firebase 
+// deixar essas configs públicas hardcoded aqui, já que a config do Firebase
 // de frontend é pública.
 
 // Para o white label sem editar arquivos: o ideal seria injetar as varáveis.
@@ -12,10 +12,14 @@ self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 // A Firebase config real precisará ser passada de alguma forma.
-// O approach mais simples em templates white-label é exigir 
+// O approach mais simples em templates white-label é exigir
 // que o cliente cole a config aqui também se for usar push.
-// Mas para evitar que o cliente mexa no código, podemos carregar de uma API 
+// Mas para evitar que o cliente mexa no código, podemos carregar de uma API
 // ou apenas usar o onBackgroundMessage genérico e deixar a injeção via vite-plugin-pwa,
 // ou simplesmente deixar comentado e documentado.
 
@@ -36,15 +40,49 @@ try {
 
     messaging.onBackgroundMessage((payload) => {
       console.log('[firebase-messaging-sw.js] Mensagem recebida em background ', payload);
-      const notificationTitle = payload.notification.title || 'Novidade!';
+
+      const notificationTitle = payload.notification?.title || 'Supermercado Sagrada Família';
       const notificationOptions = {
-        body: payload.notification.body,
-        icon: '/logo.png'
+        body: payload.notification?.body || 'Nova atualização disponível',
+        icon: '/icons/icon-sagrada-familia-app.png',
+        badge: '/icons/icon-sagrada-familia-app.png',
+        vibrate: [200, 100, 200],
+        tag: 'sagrada-familia-notification',
+        requireInteraction: false,
+        data: {
+          url: payload.fcmOptions?.link || payload.webpush?.fcmOptions?.link || '/',
+          click_action: payload.fcmOptions?.link || payload.webpush?.fcmOptions?.link || '/'
+        }
       };
 
-      self.registration.showNotification(notificationTitle, notificationOptions);
+      return self.registration.showNotification(notificationTitle, notificationOptions);
+    });
+
+    // Handle notification clicks
+    self.addEventListener('notificationclick', (event) => {
+      console.log('[firebase-messaging-sw.js] Notification clicked', event);
+
+      event.notification.close();
+
+      const urlToOpen = event.notification.data?.url || event.notification.data?.click_action || '/';
+
+      event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then((clientList) => {
+            // Check if there's already a window open
+            for (const client of clientList) {
+              if (client.url === urlToOpen && 'focus' in client) {
+                return client.focus();
+              }
+            }
+            // If no window is open, open a new one
+            if (self.clients.openWindow) {
+              return self.clients.openWindow(urlToOpen);
+            }
+          })
+      );
     });
   }
 } catch (e) {
-  console.warn('FCM Background indisponível sem configuração.', e);
+  console.warn('[firebase-messaging-sw.js] FCM Background indisponível sem configuração.', e);
 }

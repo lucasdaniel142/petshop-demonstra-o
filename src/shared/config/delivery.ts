@@ -19,6 +19,22 @@ export const DELIVERY_BASE_RADIUS_KM = parseEnvNumber(import.meta.env.VITE_DELIV
 export const DELIVERY_PER_KM_FEE = parseEnvNumber(import.meta.env.VITE_DELIVERY_PER_KM_FEE, 1.50, true);
 export const DELIVERY_MAX_RADIUS_KM = parseEnvNumber(import.meta.env.VITE_DELIVERY_MAX_RADIUS_KM, 15);
 
+// Configuração de frete grátis por valor mínimo (fallback para env vars)
+const ENV_FREE_SHIPPING_MIN_VALUE_ENABLED = import.meta.env.VITE_FREE_SHIPPING_MIN_VALUE_ENABLED === 'true';
+const ENV_FREE_SHIPPING_MIN_VALUE = parseEnvNumber(import.meta.env.VITE_FREE_SHIPPING_MIN_VALUE, 100.00, false);
+
+// Estado global para configurações do Firestore (será atualizado pelo componente)
+let firestoreFreeShippingEnabled = ENV_FREE_SHIPPING_MIN_VALUE_ENABLED;
+let firestoreFreeShippingMinValue = ENV_FREE_SHIPPING_MIN_VALUE;
+
+export function updateDeliverySettings(enabled: boolean, minValue: number) {
+  firestoreFreeShippingEnabled = enabled;
+  firestoreFreeShippingMinValue = minValue;
+}
+
+export const FREE_SHIPPING_MIN_VALUE_ENABLED = () => firestoreFreeShippingEnabled;
+export const FREE_SHIPPING_MIN_VALUE = () => firestoreFreeShippingMinValue;
+
 export interface DeliveryCalcResult {
   distanceKm: number;
   fee: number;
@@ -26,7 +42,7 @@ export interface DeliveryCalcResult {
   description: string;
 }
 
-export function calculateDeliveryFee(distanceKm: number, hasFreeShipping: boolean = false): DeliveryCalcResult {
+export function calculateDeliveryFee(distanceKm: number, hasFreeShipping: boolean = false, subtotal: number = 0): DeliveryCalcResult {
   const roundedKm = Math.round(distanceKm * 10) / 10;
 
   if (roundedKm > DELIVERY_MAX_RADIUS_KM) {
@@ -38,12 +54,26 @@ export function calculateDeliveryFee(distanceKm: number, hasFreeShipping: boolea
     };
   }
 
+  // Prioridade: frete grátis por produto > frete grátis por valor > frete normal
   if (hasFreeShipping) {
     return {
       distanceKm: roundedKm,
       fee: 0,
       isInRange: true,
       description: 'Frete Grátis (Produto Especial)',
+    };
+  }
+
+  // Verifica frete grátis por valor mínimo (usa configurações do Firestore ou env vars)
+  const enabled = FREE_SHIPPING_MIN_VALUE_ENABLED();
+  const minValue = FREE_SHIPPING_MIN_VALUE();
+
+  if (enabled && subtotal >= minValue) {
+    return {
+      distanceKm: roundedKm,
+      fee: 0,
+      isInRange: true,
+      description: `Frete Grátis (Acima de R$ ${minValue.toFixed(2).replace('.', ',')})`,
     };
   }
 

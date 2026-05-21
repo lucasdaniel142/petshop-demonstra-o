@@ -2,17 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { Bell } from 'lucide-react';
 
-function emitTestToast() {
-  window.dispatchEvent(new CustomEvent('app-toast', {
-    detail: {
-      title: 'Teste de notificação',
-      description: 'Este é um toast de foreground para verificar a UI de notificações.',
-      type: 'success',
-      duration: 5000,
-    },
-  }));
-}
-
 export const NotificationBanner: React.FC = () => {
   const { permission, requestPermissionAndGetToken } = usePushNotifications();
   const [isVisible, setIsVisible] = useState(false);
@@ -43,25 +32,18 @@ export const NotificationBanner: React.FC = () => {
         <span>Quer saber em primeira mão quando tivermos novas ofertas?</span>
       </div>
       <div className="flex flex-col sm:flex-row items-center gap-2">
-        <button 
+        <button
           onClick={handleAllow}
           disabled={loading}
           className="bg-primary text-white px-4 py-1.5 rounded-full font-bold text-xs sm:text-sm hover:bg-primary-dark transition-colors shadow-sm disabled:opacity-70"
         >
           {loading ? 'Ativando...' : 'Sim, avisar!'}
         </button>
-        <button 
+        <button
           onClick={() => setIsVisible(false)}
           className="text-gray-500 px-3 py-1.5 rounded-full font-medium text-xs sm:text-sm hover:bg-black/5 transition-colors"
         >
           Agora não
-        </button>
-        <button
-          type="button"
-          onClick={emitTestToast}
-          className="text-primary-dark border border-primary/20 bg-white px-3 py-1.5 rounded-full font-medium text-xs sm:text-sm hover:bg-primary/5 transition-colors"
-        >
-          Testar toast
         </button>
       </div>
     </div>
