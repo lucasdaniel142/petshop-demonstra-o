@@ -49,10 +49,25 @@ try {
         vibrate: [200, 100, 200],
         tag: 'sagrada-familia-notification',
         requireInteraction: false,
+        // Configurações para garantir notificação nativa na barra de notificações
+        silent: false,
+        // Prioridade alta para garantir visibilidade
+        priority: 2,
+        // Título curto para mobile
+        shortTitle: payload.notification?.title || 'Supermercado',
+        // Dados para clique
         data: {
           url: payload.fcmOptions?.link || payload.webpush?.fcmOptions?.link || '/',
           click_action: payload.fcmOptions?.link || payload.webpush?.fcmOptions?.link || '/'
-        }
+        },
+        // Ações possíveis na notificação
+        actions: [
+          {
+            action: 'open',
+            title: 'Abrir',
+            icon: '/icons/icon-sagrada-familia-app.png'
+          }
+        ]
       };
 
       return self.registration.showNotification(notificationTitle, notificationOptions);

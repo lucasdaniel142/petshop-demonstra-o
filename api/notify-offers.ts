@@ -48,29 +48,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Título e corpo são obrigatórios' });
     }
 
-    // 2. Buscar todos os tokens registrados
-    const snapshot = await adminDb.collection('fcmTokens').get();
-    const tokens = snapshot.docs.map(doc => doc.id);
+    // 2. Buscar tokens em lotes (paginação) para evitar gargalo com muitos dispositivos
+    const BATCH_SIZE = 500;
+    let allTokens: string[] = [];
+    let lastDoc: any = null;
+    let hasMore = true;
 
-    if (tokens.length === 0) {
+    while (hasMore) {
+      let query = adminDb.collection('fcmTokens').limit(BATCH_SIZE);
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+
+      const snapshot = await query.get();
+      const batchTokens = snapshot.docs.map(doc => doc.id);
+      allTokens = allTokens.concat(batchTokens);
+
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      hasMore = batchTokens.length === BATCH_SIZE;
+    }
+
+    if (allTokens.length === 0) {
       return res.status(200).json({ success: true, message: 'Nenhum dispositivo inscrito.' });
     }
 
-    // 3. Enviar via Multicast (lotes de 500)
-    const response = await adminMessaging.sendEachForMulticast({
-      tokens,
-      notification: { title, body },
-      webpush: {
-        fcmOptions: {
-          link: link || '/'
-        }
-      }
-    });
+    // 3. Enviar via Multicast em lotes de 500 (limite do Firebase)
+    let totalSuccess = 0;
+    let totalFailed = 0;
 
-    return res.status(200).json({ 
-      success: true, 
-      sent: response.successCount, 
-      failed: response.failureCount 
+    for (let i = 0; i < allTokens.length; i += BATCH_SIZE) {
+      const batch = allTokens.slice(i, i + BATCH_SIZE);
+      const response = await adminMessaging.sendEachForMulticast({
+        tokens: batch,
+        notification: { title, body },
+        webpush: {
+          fcmOptions: {
+            link: link || '/'
+          }
+        }
+      });
+
+      totalSuccess += response.successCount;
+      totalFailed += response.failureCount;
+    }
+
+    return res.status(200).json({
+      success: true,
+      sent: totalSuccess,
+      failed: totalFailed
     });
 
   } catch (error: any) {

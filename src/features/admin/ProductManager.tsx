@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit2, Trash2, FileSpreadsheet, Send } from 'lucide-react';
 import { BulkImportModal } from './components/BulkImportModal';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
 import { FeedbackBanner } from '../../shared/ui/FeedbackBanner';
 import type { ManagedProduct, FeedbackState, StorePrice, StoreId } from '../../shared/types';
 import { DEFAULT_STORE_PRICE } from '../../shared/types';
 import { PRODUCT_CATEGORIES, STORE_IDS, ADMIN_STORES } from '../../shared/utils/constants';
+import { auth } from '../../shared/lib/firebase';
 
 const IMGBB_UPLOAD_URL = `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`;
 
@@ -148,7 +149,25 @@ export const ProductManager: React.FC = () => {
     setLoading(true);
     try {
       if (editingId) {
+        // Verificar se algum produto entrou em oferta para disparar notificação
+        const oldProductDoc = await getDoc(doc(db, 'produtos', editingId));
+        const oldProduct = oldProductDoc.data() as ManagedProduct | undefined;
+
         await updateDoc(doc(db, 'produtos', editingId), formData);
+
+        // Verificar se algum store entrou em oferta e disparar notificação
+        if (oldProduct) {
+          for (const storeId of STORE_IDS) {
+            const oldInOffer = oldProduct.precos[storeId]?.emOferta || false;
+            const newInOffer = formData.precos[storeId]?.emOferta || false;
+
+            if (!oldInOffer && newInOffer) {
+              // Produto entrou em oferta - disparar notificação
+              await sendPromoNotificationForProduct(formData.nome, storeId);
+            }
+          }
+        }
+
         showFeedback('success', 'Produto atualizado.');
       } else {
         await addDoc(collection(db, 'produtos'), formData);
@@ -159,6 +178,39 @@ export const ProductManager: React.FC = () => {
       showFeedback('error', 'Erro ao salvar.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const sendPromoNotificationForProduct = async (productName: string, storeId: StoreId) => {
+    try {
+      // Buscar configurações de notificação de promoção
+      const settingsDoc = await getDoc(doc(db, 'settings', 'delivery'));
+      const settings = settingsDoc.data();
+
+      const title = settings?.promoNotificationTitle || '🔥 Promoção Especial!';
+      const body = `${productName} está em oferta! ${settings?.promoNotificationBody || 'Confira nossas ofertas imperdíveis!'}`;
+
+      // Obter token do usuário atual para autenticação
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        console.warn('Usuário não autenticado para enviar notificação');
+        return;
+      }
+
+      // Chamar API de notificação
+      await fetch('/api/notify-offers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ title, body, link: '/' })
+      });
+
+      showFeedback('success', `Notificação de promoção enviada para ${productName}`);
+    } catch (error) {
+      console.error('Erro ao enviar notificação de promoção:', error);
+      // Não mostrar erro ao usuário pois o produto já foi salvo
     }
   };
 

@@ -135,6 +135,13 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // --- COLEÇÃO: settings ---
+    // Leitura e escrita: apenas admins autenticados
+    // Esta coleção armazena configurações do sistema (ex: frete grátis)
+    match /settings/{settingsId} {
+      allow read, write: if isAdmin();
+    }
+
     // --- PADRÃO: Bloquear tudo que não foi explicitamente permitido ---
     match /{document=**} {
       allow read, write: if false;

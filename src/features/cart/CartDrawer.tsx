@@ -72,7 +72,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
   const [cepError, setCepError] = useState<string | null>(null);
 
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
@@ -203,111 +202,108 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
     const sanitizedName = sanitizeCustomerText(customerName, 100);
     const sanitizedAddress = sanitizeCustomerText(`${streetAddress.trim()}${houseNumber.trim() ? `, Nº ${houseNumber.trim()}` : ''}${referencePoint.trim() ? ` | Referência: ${referencePoint.trim()}` : ''}`, 500);
     const combinedDeliveryAddress = sanitizedAddress;
-    setIsSubmitting(true);
-    setCheckoutError(null);
 
-    let checkoutPayload: Record<string, unknown> | null = null;
-    try {
-      let changeForNum: number | null = null;
-      if (paymentMethod === 'Dinheiro' && changeFor) {
-        changeForNum = parseFloat(changeFor.replace(',', '.'));
-      }
-
-      // NOVO FLUXO: Enviar para API em vez de gravar direto no Firestore
-      checkoutPayload = {
-        items: items.map(item => ({ id: item.id, quantity: item.quantity })),
-        customerName: sanitizedName,
-        customerPhone: cleanPhone,
-        deliveryAddress: combinedDeliveryAddress,
-        cep: cep.replace(/\D/g, ''),
-        storeId: selectedStoreId,
-        paymentMethod: paymentMethod === 'Dinheiro' ? 'dinheiro' : paymentMethod === 'Pix' ? 'pix_presencial' : paymentMethod === 'Ticket Alimentação/Refeição' ? 'ticket' : 'maquininha',
-        changeFor: changeForNum,
-        distanceKm: activeDelivery?.distanceKm || 0,
-        fcmToken: finalFcmToken
-      };
-
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(checkoutPayload)
-      });
-
-      const responseClone = response.clone();
-      let body: any = {};
-      let parseError = false;
-      let responseText = '';
-
-      try {
-        body = await response.json();
-      } catch (e) {
-        parseError = true;
-        responseText = await responseClone.text();
-        console.error('Erro real da Vercel:', responseText, e);
-      }
-
-      if (!response.ok) {
-        const fallback =
-          response.status === 404
-            ? 'API de checkout não encontrada.'
-            : responseText
-              ? `Erro no servidor: ${responseText}`
-              : typeof body.error === 'string'
-                ? body.error
-                : `Erro do Servidor (HTTP ${response.status}).`;
-        throw new Error(fallback);
-      }
-
-      if (parseError) {
-        throw new Error('Erro no servidor. Verifique o console ou contate o suporte.');
-      }
-
-      const orderId = (body.orderId as string | undefined) || `temp-${Date.now()}`;
-      const serverSubtotal = (body.subtotal !== null && body.subtotal !== undefined && !isNaN(Number(body.subtotal)))
-        ? Number(body.subtotal)
-        : cartTotal;
-      const serverDeliveryFee = (body.deliveryFee !== null && body.deliveryFee !== undefined && !isNaN(Number(body.deliveryFee)))
-        ? Number(body.deliveryFee)
-        : deliveryFee;
-
-      const storePhone = STORE_WHATSAPP_NUMBERS[selectedStoreId];
-      const link = generateWhatsAppLink(
-        items,
-        serverSubtotal,
-        sanitizedName,
-        combinedDeliveryAddress,
-        paymentMethod,
-        selectedStoreLabel,
-        storePhone,
-        serverDeliveryFee,
-        changeFor || undefined,
-        !delivery && !hasFreeShippingItems // isFallback flag
-      );
-
-      if (!link) {
-        setCheckoutError('Número do WhatsApp desta loja não configurado. Pedido foi salvo, contate a loja.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Pequeno delay para garantir que o navegador processe o window.open
-      setTimeout(() => {
-        clearCart();
-        setIsModalOpen(false);
-        setCustomerName('');
-        setStreetAddress('');
-        setHouseNumber('');
-        setReferencePoint('');
-        setCep('');
-        setChangeFor('');
-        toggleCart();
-      }, 100);
-    } catch (err: any) {
-      console.error('Erro ao salvar pedido:', err, { checkoutPayload });
-      setCheckoutError(err.message || 'Ocorreu um erro ao salvar seu pedido. Tente novamente.');
-    } finally {
-      setIsSubmitting(false);
+    let changeForNum: number | null = null;
+    if (paymentMethod === 'Dinheiro' && changeFor) {
+      changeForNum = parseFloat(changeFor.replace(',', '.'));
     }
+
+    // Preparar payload do checkout
+    const checkoutPayload = {
+      items: items.map(item => ({ id: item.id, quantity: item.quantity })),
+      customerName: sanitizedName,
+      customerPhone: cleanPhone,
+      deliveryAddress: combinedDeliveryAddress,
+      cep: cep.replace(/\D/g, ''),
+      storeId: selectedStoreId,
+      paymentMethod: paymentMethod === 'Dinheiro' ? 'dinheiro' : paymentMethod === 'Pix' ? 'pix_presencial' : paymentMethod === 'Ticket Alimentação/Refeição' ? 'ticket' : 'maquininha',
+      changeFor: changeForNum,
+      distanceKm: activeDelivery?.distanceKm || 0,
+      fcmToken: finalFcmToken
+    };
+
+    // Limpar estado do carrinho IMEDIATAMENTE para não travar a UI
+    const itemsSnapshot = [...items];
+    clearCart();
+    setIsModalOpen(false);
+    setCustomerName('');
+    setStreetAddress('');
+    setHouseNumber('');
+    setReferencePoint('');
+    setCep('');
+    setChangeFor('');
+    toggleCart();
+
+    // Enviar pedido em background (não bloqueia a UI)
+    (async () => {
+      try {
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(checkoutPayload)
+        });
+
+        const responseClone = response.clone();
+        let body: any = {};
+        let parseError = false;
+        let responseText = '';
+
+        try {
+          body = await response.json();
+        } catch (e) {
+          parseError = true;
+          responseText = await responseClone.text();
+          console.error('Erro real da Vercel:', responseText, e);
+        }
+
+        if (!response.ok) {
+          const fallback =
+            response.status === 404
+              ? 'API de checkout não encontrada.'
+              : responseText
+                ? `Erro no servidor: ${responseText}`
+                : typeof body.error === 'string'
+                  ? body.error
+                  : `Erro do Servidor (HTTP ${response.status}).`;
+          throw new Error(fallback);
+        }
+
+        if (parseError) {
+          throw new Error('Erro no servidor. Verifique o console ou contate o suporte.');
+        }
+
+        const orderId = (body.orderId as string | undefined) || `temp-${Date.now()}`;
+        const serverSubtotal = (body.subtotal !== null && body.subtotal !== undefined && !isNaN(Number(body.subtotal)))
+          ? Number(body.subtotal)
+          : cartTotal;
+        const serverDeliveryFee = (body.deliveryFee !== null && body.deliveryFee !== undefined && !isNaN(Number(body.deliveryFee)))
+          ? Number(body.deliveryFee)
+          : deliveryFee;
+
+        const storePhone = STORE_WHATSAPP_NUMBERS[selectedStoreId];
+        const link = generateWhatsAppLink(
+          itemsSnapshot,
+          serverSubtotal,
+          sanitizedName,
+          combinedDeliveryAddress,
+          paymentMethod,
+          selectedStoreLabel,
+          storePhone,
+          serverDeliveryFee,
+          changeFor || undefined,
+          !delivery && !hasFreeShippingItems // isFallback flag
+        );
+
+        if (link) {
+          // Redirecionamento automático para WhatsApp
+          window.open(link, '_blank');
+        }
+      } catch (err: any) {
+        console.error('Erro ao salvar pedido em background:', err, { checkoutPayload });
+        // Não mostramos erro na UI pois o carrinho já foi limpo
+        // Em produção, poderíamos mostrar um toast de erro
+      }
+    })();
   };
 
   const handleCloseModal = () => {
@@ -548,24 +544,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ selectedStoreLabel, sele
               <button
                 type="button"
                 onClick={handleConfirmOrder}
-                disabled={!privacyAccepted || isSubmitting}
-                aria-busy={isSubmitting}
-                aria-disabled={!privacyAccepted || isSubmitting}
+                disabled={!privacyAccepted}
+                aria-disabled={!privacyAccepted}
                 className="w-full rounded-xl bg-accent text-on-accent py-3.5 font-extrabold shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin text-on-accent shrink-0" aria-hidden />
-                    <span>Enviando pedido…</span>
-                  </>
-                ) : (
-                  <>
-                    <MessageCircle size={18} className="text-on-accent shrink-0" strokeWidth={2.25} aria-hidden />
-                    <span>Confirmar pedido via WhatsApp</span>
-                  </>
-                )}
+                <MessageCircle size={18} className="text-on-accent shrink-0" strokeWidth={2.25} aria-hidden />
+                <span>Confirmar pedido via WhatsApp</span>
               </button>
-              <button onClick={handleCloseModal} disabled={isSubmitting} className="w-full rounded-[10px] border border-border text-text py-3 font-[600] hover:bg-[#F8F8F8] transition-colors">Voltar</button>
+              <button onClick={handleCloseModal} className="w-full rounded-[10px] border border-border text-text py-3 font-[600] hover:bg-[#F8F8F8] transition-colors">Voltar</button>
             </div>
           </div>
         </div>

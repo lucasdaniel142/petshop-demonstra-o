@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Loader2 } from 'lucide-react';
+import { Settings, Save, Loader2, AlertCircle } from 'lucide-react';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
 import { updateDeliverySettings } from '../../shared/config/delivery';
+import { useAuth } from '../../shared/contexts/AuthContext';
 
 interface SystemSettings {
   freeShippingMinValueEnabled: boolean;
   freeShippingMinValue: number;
+  promoNotificationTitle: string;
+  promoNotificationBody: string;
   updatedAt?: unknown;
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
   freeShippingMinValueEnabled: false,
   freeShippingMinValue: 100.00,
+  promoNotificationTitle: '🔥 Promoção Especial!',
+  promoNotificationBody: 'Confira nossas ofertas imperdíveis!',
 };
 
 export const SettingsManager: React.FC = () => {
+  const { isAdmin, loading: authLoading } = useAuth();
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,6 +29,12 @@ export const SettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    // Só carrega configurações se o usuário for admin
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
+
     const settingsDocRef = doc(db, 'settings', 'delivery');
 
     const unsubscribe = onSnapshot(
@@ -33,6 +45,8 @@ export const SettingsManager: React.FC = () => {
           const newSettings = {
             freeShippingMinValueEnabled: data.freeShippingMinValueEnabled ?? false,
             freeShippingMinValue: data.freeShippingMinValue ?? 100.00,
+            promoNotificationTitle: data.promoNotificationTitle ?? DEFAULT_SETTINGS.promoNotificationTitle,
+            promoNotificationBody: data.promoNotificationBody ?? DEFAULT_SETTINGS.promoNotificationBody,
           };
           setSettings(newSettings);
           // Atualiza configurações globais de entrega
@@ -51,9 +65,15 @@ export const SettingsManager: React.FC = () => {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [isAdmin]);
 
   const handleSave = async () => {
+    // Verifica se o usuário é admin antes de salvar
+    if (!isAdmin) {
+      setError('Você não tem permissão para salvar configurações');
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSuccess(false);
@@ -76,10 +96,22 @@ export const SettingsManager: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <AlertCircle className="mx-auto text-red-500 mb-3" size={48} />
+        <h2 className="text-[18px] font-[700] text-red-700 mb-2">Acesso Negado</h2>
+        <p className="text-[14px] text-red-600">
+          Você não tem permissão para acessar as configurações do sistema.
+        </p>
       </div>
     );
   }
@@ -153,6 +185,43 @@ export const SettingsManager: React.FC = () => {
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="border-b border-gray-200 pb-6">
+            <h2 className="text-[16px] font-[700] text-text mb-4">Notificações de Promoção</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[14px] font-[600] text-text block mb-2">
+                  Título Padrão
+                </label>
+                <input
+                  type="text"
+                  value={settings.promoNotificationTitle}
+                  onChange={(e) => setSettings({ ...settings, promoNotificationTitle: e.target.value })}
+                  className="w-full rounded-lg border border-border px-4 py-2.5 text-[14px] outline-none focus:border-primary transition-colors"
+                  placeholder="🔥 Promoção Especial!"
+                />
+                <p className="text-[12px] text-muted mt-1">
+                  Título usado nas notificações push de promoção
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[14px] font-[600] text-text block mb-2">
+                  Mensagem Padrão
+                </label>
+                <textarea
+                  value={settings.promoNotificationBody}
+                  onChange={(e) => setSettings({ ...settings, promoNotificationBody: e.target.value })}
+                  className="w-full rounded-lg border border-border px-4 py-2.5 text-[14px] outline-none focus:border-primary transition-colors resize-none h-20"
+                  placeholder="Confira nossas ofertas imperdíveis!"
+                />
+                <p className="text-[12px] text-muted mt-1">
+                  Corpo da mensagem usado nas notificações push de promoção
+                </p>
+              </div>
             </div>
           </div>
 

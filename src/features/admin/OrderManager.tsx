@@ -19,18 +19,18 @@ import { db, auth } from '../../shared/lib/firebase';
 import type { Order, PaymentMethodType, OrderStatus } from '../../shared/types';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; whatsappMessage: string }> = {
-  pending: { label: '🔔 Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100', whatsappMessage: 'Olá! Recebemos seu pedido e já estamos começando a prepará-lo. Em breve você receberá atualizações sobre o status.' },
-  preparing: { label: '📦 Em Separação', color: 'text-blue-700', bg: 'bg-blue-100', whatsappMessage: 'Olá! Seu pedido está sendo separado e preparado com carinho. Em breve sairá para entrega.' },
-  shipped: { label: '🛵 Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100', whatsappMessage: 'Olá! Seu pedido saiu para entrega e está a caminho. Fique atento para recebê-lo!' },
-  delivered: { label: '✅ Entregue', color: 'text-green-700', bg: 'bg-green-100', whatsappMessage: 'Olá! Seu pedido foi entregue com sucesso. Agradecemos a preferência!' },
-  cancelled: { label: '❌ Cancelado', color: 'text-red-700', bg: 'bg-red-100', whatsappMessage: 'Olá! Informamos que seu pedido foi cancelado. Entre em contato conosco para mais informações.' },
+  pending: { label: '\u{1F514} Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100', whatsappMessage: 'Olá! Recebemos seu pedido e já estamos começando a prepará-lo. Em breve você receberá atualizações sobre o status.' },
+  preparing: { label: '\u{1F4E6} Em Separação', color: 'text-blue-700', bg: 'bg-blue-100', whatsappMessage: 'Olá! Seu pedido está sendo separado e preparado com carinho. Em breve sairá para entrega.' },
+  shipped: { label: '\u{1F4F8} Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100', whatsappMessage: 'Olá! Seu pedido saiu para entrega e está a caminho. Fique atento para recebê-lo!' },
+  delivered: { label: '\u{2705} Entregue', color: 'text-green-700', bg: 'bg-green-100', whatsappMessage: 'Olá! Seu pedido foi entregue com sucesso. Agradecemos a preferência!' },
+  cancelled: { label: '\u{274C} Cancelado', color: 'text-red-700', bg: 'bg-red-100', whatsappMessage: 'Olá! Informamos que seu pedido foi cancelado. Entre em contato conosco para mais informações.' },
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  pix_presencial: '📱 Pix na Entrega',
-  dinheiro: '💵 Dinheiro',
-  maquininha: '💳 Crédito/Débito',
-  ticket: '🎫 Ticket (Alim./Refeição)',
+  pix_presencial: '\u{1F4F1} Pix na Entrega',
+  dinheiro: '\u{1F4B5} Dinheiro',
+  maquininha: '\u{1F4B3} Crédito/Débito',
+  ticket: '\u{1F3AB} Ticket (Alim./Refeição)',
 };
 
 const FILTER_OPTIONS = [
