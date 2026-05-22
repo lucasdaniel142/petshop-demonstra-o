@@ -45,14 +45,14 @@ try {
       const notificationOptions = {
         body: payload.notification?.body || 'Nova atualização disponível',
         icon: '/icons/icon-sagrada-familia-app.png',
-        badge: '/icons/icon-sagrada-familia-app.png',
+        badge: '/icons/icon-192.png',
         vibrate: [200, 100, 200],
         tag: 'sagrada-familia-notification',
         requireInteraction: false,
         // Configurações para garantir notificação nativa na barra de notificações
         silent: false,
         // Prioridade alta para garantir visibilidade
-        priority: 2,
+        priority: 'high',
         // Título curto para mobile
         shortTitle: payload.notification?.title || 'Supermercado',
         // Dados para clique
@@ -65,9 +65,15 @@ try {
           {
             action: 'open',
             title: 'Abrir',
-            icon: '/icons/icon-sagrada-familia-app.png'
+            icon: '/icons/icon-192.png'
           }
-        ]
+        ],
+        // Configurações específicas para Android
+        android: {
+          channelId: 'sagrada-familia-notifications',
+          priority: 'high',
+          visibility: 'public'
+        }
       };
 
       return self.registration.showNotification(notificationTitle, notificationOptions);

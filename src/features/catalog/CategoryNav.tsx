@@ -17,9 +17,9 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
       aria-label="Categorias de produtos"
       role="navigation"
     >
-      <div className="w-full px-[24px] overflow-hidden">
+      <div className="w-full px-3 sm:px-4 md:px-6 overflow-hidden">
         <ul
-          className="flex items-center gap-[14px] overflow-x-auto scrollbar-hide text-[13px] font-[600]"
+          className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide text-[12px] sm:text-[13px] font-[600]"
           role="list"
         >
           {categories.map((category) => {
@@ -30,7 +30,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
                   type="button"
                   onClick={() => onCategoryChange(category.id)}
                   aria-current={isActive ? 'true' : undefined}
-                  className={`rounded-full px-[14px] py-[8px] transition-all duration-150 border text-[13px] ${
+                  className={`rounded-full px-3 sm:px-4 py-2 transition-all duration-150 border text-[12px] sm:text-[13px] ${
                     isActive
                       ? 'bg-primary text-white border-primary shadow-sm'
                       : 'bg-[#F8FAF8] text-text border-transparent hover:bg-primary/10 hover:text-primary'

@@ -15,6 +15,7 @@ import { CategoryNav } from './CategoryNav';
 import { CartDrawer } from '../cart/CartDrawer';
 import { ProductCard } from './ProductCard';
 import { NotificationBanner } from '../../shared/components/NotificationBanner';
+import { NotificationPermissionBanner } from '../../shared/components/NotificationPermissionBanner';
 import { useCart } from '../../shared/hooks/useCart';
 import type { FirestoreProduct, StoreId } from '../../shared/types';
 import { STORES, STORE_IDS, CATEGORY_OPTIONS, CATEGORY_KEYWORDS } from '../../shared/utils/constants';
@@ -37,11 +38,11 @@ function mapProductDoc(docSnap: QueryDocumentSnapshot<DocumentData>): FirestoreP
 }
 
 const ProductSkeleton: React.FC = () => (
-  <div className="bg-white rounded-2xl shadow-sm p-6 lg:p-8 flex flex-col h-full animate-pulse border-0">
-    <div className="w-full h-[120px] bg-gray-200 rounded-xl mb-6 lg:mb-8" />
-    <div className="h-5 w-3/4 bg-gray-200 rounded mb-2" />
-    <div className="h-4 w-1/2 bg-gray-200 rounded mb-4" />
-    <div className="mt-auto h-11 w-full bg-gray-200 rounded-xl" />
+  <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 md:p-6 lg:p-8 flex flex-col h-full animate-pulse border-0">
+    <div className="w-full h-[100px] sm:h-[120px] bg-gray-200 rounded-xl mb-4 sm:mb-6 lg:mb-8" />
+    <div className="h-4 sm:h-5 w-3/4 bg-gray-200 rounded mb-2" />
+    <div className="h-3 sm:h-4 w-1/2 bg-gray-200 rounded mb-4" />
+    <div className="mt-auto h-10 sm:h-11 w-full bg-gray-200 rounded-xl" />
   </div>
 );
 
@@ -269,6 +270,7 @@ export const Home: React.FC = () => {
 
   return (
     <div className="min-h-screen w-screen overflow-x-clip flex flex-col bg-bg text-text font-sans antialiased">
+      <NotificationPermissionBanner />
       <NotificationBanner />
       <div className={`sticky top-0 z-50 transition-shadow duration-300 ${isScrolled ? 'shadow-lg' : ''}`}>
         <Header
@@ -287,22 +289,22 @@ export const Home: React.FC = () => {
       </div>
 
       <main className="flex flex-1 flex-col">
-        <div className="bg-white/90 border-b border-gray-100 backdrop-blur-sm px-4 sm:px-8 lg:px-10 py-8 lg:py-12">
-          <div className="max-w-7xl mx-auto flex flex-col gap-6 sm:gap-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="bg-white/90 border-b border-gray-100 backdrop-blur-sm px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 lg:py-10 xl:py-12">
+          <div className="max-w-7xl mx-auto flex flex-col gap-4 sm:gap-6 lg:gap-8 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[13px] text-muted uppercase tracking-[0.2em]">Vitrine</p>
-              <h1 className="text-[28px] md:text-[32px] lg:text-[36px] font-[800] text-text mt-2 leading-tight">
+              <p className="text-[11px] sm:text-[12px] md:text-[13px] text-muted uppercase tracking-[0.2em]">Vitrine</p>
+              <h1 className="text-[22px] sm:text-[26px] md:text-[28px] lg:text-[32px] xl:text-[36px] font-[800] text-text mt-1 sm:mt-2 leading-tight">
                 Produtos disponíveis no {storeLabel}
               </h1>
             </div>
-            <div className="rounded-2xl bg-bg/90 px-6 py-5 lg:px-8 lg:py-6 text-[14px] lg:text-[15px] text-text max-w-xs leading-relaxed shadow-sm">
+            <div className="rounded-2xl bg-bg/90 px-4 sm:px-5 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-5 xl:py-6 text-[12px] sm:text-[13px] lg:text-[14px] xl:text-[15px] text-text max-w-xs leading-relaxed shadow-sm hidden sm:block">
               Escolha a loja e a categoria para ver os preços exatos.
             </div>
           </div>
         </div>
 
         <section className="flex-1 bg-bg">
-          <div className="px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+          <div className="px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 xl:py-12">
             <div className="max-w-7xl mx-auto">{renderContent()}</div>
           </div>
         </section>

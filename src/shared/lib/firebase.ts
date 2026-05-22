@@ -2,7 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getMessaging, isSupported } from 'firebase/messaging';
+import { getMessaging, isSupported, onMessage } from 'firebase/messaging';
 
 const requireEnv = (key: string): string => {
   const value = import.meta.env[key];
@@ -41,6 +41,29 @@ let messagingInstance: ReturnType<typeof getMessaging> | null = null;
 isSupported().then((supported) => {
   if (supported) {
     messagingInstance = getMessaging(app);
+    
+    // Handler para mensagens recebidas quando o app está em foreground (aberto)
+    onMessage(messagingInstance, (payload) => {
+      console.log('[Firebase] Mensagem recebida em foreground:', payload);
+      
+      // Mostrar notificação nativa mesmo quando o app está aberto
+      if (Notification.permission === 'granted') {
+        const notificationTitle = payload.notification?.title || 'Supermercado Sagrada Família';
+        const notificationOptions = {
+          body: payload.notification?.body || 'Nova atualização disponível',
+          icon: '/icons/icon-sagrada-familia-app.png',
+          badge: '/icons/icon-192.png',
+          vibrate: [200, 100, 200],
+          tag: 'sagrada-familia-notification',
+          requireInteraction: false,
+          data: {
+            url: (payload as any).fcmOptions?.link || (payload as any).webpush?.fcmOptions?.link || '/',
+          }
+        };
+        
+        new Notification(notificationTitle, notificationOptions);
+      }
+    });
   }
 });
 

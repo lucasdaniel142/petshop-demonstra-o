@@ -34,3 +34,49 @@
   width: auto;
   height: auto;
 }
+
+/* Mobile Optimizations */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Melhorar touch targets em mobile */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Prevenir zoom acidental em inputs no iOS */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}

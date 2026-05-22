@@ -38,8 +38,8 @@ export const ProductCard = React.memo(function ProductCard({
   }, [addItem, disabled, product, storeId, storePrice]);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6 lg:p-8 flex flex-col h-full border-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-      <div className="w-full h-[120px] bg-gray-50 rounded-xl mb-6 lg:mb-8 flex items-center justify-center overflow-hidden relative">
+    <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 md:p-6 lg:p-8 flex flex-col h-full border-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+      <div className="w-full h-[100px] sm:h-[120px] bg-gray-50 rounded-xl mb-4 sm:mb-6 lg:mb-8 flex items-center justify-center overflow-hidden relative">
         <img
           src={product.imageUrl || DEFAULT_PLACEHOLDER_IMAGE}
           alt={product.name}
@@ -55,37 +55,37 @@ export const ProductCard = React.memo(function ProductCard({
         />
 
         {isOffer && (
-          <span className="absolute top-2 left-2 bg-accent text-on-accent text-[10px] font-extrabold px-2 py-1 rounded-md uppercase tracking-wider">
+          <span className="absolute top-2 left-2 bg-accent text-on-accent text-[9px] sm:text-[10px] font-extrabold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md uppercase tracking-wider">
             Oferta
           </span>
         )}
         {product.freteGratis && !storePrice?.esgotado && (
-          <span className="absolute bottom-2 left-2 bg-emerald-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5">
+          <span className="absolute bottom-2 left-2 bg-emerald-500 text-white text-[8px] sm:text-[9px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5">
             🚚 Frete Grátis
           </span>
         )}
         {storePrice?.esgotado && (
-          <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
+          <span className="absolute top-2 right-2 bg-red-500 text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md uppercase tracking-wider">
             Esgotado
           </span>
         )}
       </div>
 
-      <div className="flex flex-col flex-grow space-y-3">
+      <div className="flex flex-col flex-grow space-y-2 sm:space-y-3">
         <div className="flex items-baseline gap-1">
           {hasPrice ? (
             <>
-              <span className="text-[18px] lg:text-[20px] font-[700] text-text">
+              <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-[700] text-text">
                 R$ {(product.price || 0).toFixed(2).replace('.', ',')}
               </span>
-              <span className="text-[11px] text-muted font-[400]">/ {product.unit}</span>
+              <span className="text-[10px] sm:text-[11px] text-muted font-[400]">/ {product.unit}</span>
             </>
           ) : (
-            <span className="text-[14px] font-[600] text-muted italic">Sob consulta</span>
+            <span className="text-[13px] sm:text-[14px] font-[600] text-muted italic">Sob consulta</span>
           )}
         </div>
 
-        <h3 className="text-[14px] lg:text-[15px] font-[500] text-text leading-[1.3] min-h-[2.5rem] overflow-hidden line-clamp-2">
+        <h3 className="text-[13px] sm:text-[14px] lg:text-[15px] font-[500] text-text leading-[1.3] min-h-[2.2rem] sm:min-h-[2.5rem] overflow-hidden line-clamp-2">
           {product.name}
         </h3>
 
@@ -95,16 +95,16 @@ export const ProductCard = React.memo(function ProductCard({
               type="button"
               onClick={handleAdd}
               disabled={disabled}
-              className="w-full min-h-[44px] rounded-xl bg-accent text-on-accent font-extrabold text-[13px] tracking-wide flex items-center justify-center shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-45"
+              className="w-full min-h-[42px] sm:min-h-[44px] rounded-xl bg-accent text-on-accent font-extrabold text-[12px] sm:text-[13px] tracking-wide flex items-center justify-center shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-45"
             >
               Adicionar
             </button>
           ) : (
-            <div className="w-full min-h-11 bg-primary rounded-xl text-on-primary flex items-center justify-between px-1 gap-0.5">
+            <div className="w-full min-h-10 sm:min-h-11 bg-primary rounded-xl text-on-primary flex items-center justify-between px-1 gap-0.5">
               <button
                 type="button"
                 onClick={() => updateQuantity(product.id, quantity - 1)}
-                className="min-w-11 min-h-11 flex items-center justify-center text-lg rounded-lg hover:bg-white/20 transition-colors"
+                className="min-w-10 sm:min-w-11 min-h-10 sm:min-h-11 flex items-center justify-center text-base sm:text-lg rounded-lg hover:bg-white/20 transition-colors"
                 aria-label="Diminuir quantidade"
               >
                 −
@@ -113,7 +113,7 @@ export const ProductCard = React.memo(function ProductCard({
               <button
                 type="button"
                 onClick={() => updateQuantity(product.id, quantity + 1)}
-                className="min-w-11 min-h-11 flex items-center justify-center text-lg rounded-lg hover:bg-white/20 transition-colors"
+                className="min-w-10 sm:min-w-11 min-h-10 sm:min-h-11 flex items-center justify-center text-base sm:text-lg rounded-lg hover:bg-white/20 transition-colors"
                 aria-label="Aumentar quantidade"
               >
                 +

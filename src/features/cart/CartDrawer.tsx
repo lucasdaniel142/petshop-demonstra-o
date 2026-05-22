@@ -93,7 +93,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const isNameInvalid = checkoutError !== null && !customerName.trim();
   const isAddressInvalid = checkoutError !== null && !deliveryAddress.trim();
@@ -243,8 +242,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       const sanitizedAddress = sanitize(deliveryAddress);
 
       // Resolução do token FCM (após bloquear o botão)
+      // Se o usuário já concedeu permissão via banner, tenta obter o token automaticamente
       let finalFcmToken = fcmToken;
-      if (notificationsEnabled && !fcmToken) {
+      if (!fcmToken && Notification.permission === 'granted') {
         finalFcmToken = await requestNotificationToken();
         if (finalFcmToken) {
           setFcmToken(finalFcmToken); // persiste no estado para submissões futuras
@@ -770,22 +770,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </Link>
                   . Autorizo o uso dos meus dados.
                 </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer mt-2 bg-primary/5 p-3 rounded-lg border border-primary/10">
-                <input
-                  type="checkbox"
-                  checked={notificationsEnabled}
-                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary shrink-0"
-                />
-                <div className="flex flex-col">
-                  <span className="text-[12px] font-bold text-primary">
-                    Receber avisos pelo celular? 🔔
-                  </span>
-                  <span className="text-[10px] text-muted leading-tight">
-                    Avisaremos quando seu pedido sair para entrega.
-                  </span>
-                </div>
               </label>
             </div>
 

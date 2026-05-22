@@ -138,7 +138,7 @@ export const PriceManager: React.FC = () => {
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error('Não autenticado');
 
-      const response = await fetch('/api/notify', {
+      const response = await fetch('/api/notify-offers', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -147,8 +147,6 @@ export const PriceManager: React.FC = () => {
         body: JSON.stringify({
           title: '🚨 Novas Ofertas Disponíveis!',
           body: 'Corra para o app e confira os produtos com desconto especial hoje.',
-          topic: 'ofertas',
-          link: '/'
         }),
       });
       
