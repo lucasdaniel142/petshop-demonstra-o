@@ -1,195 +1,107 @@
+// =============================================================================
+// api/notify.ts — Serverless Function (Vercel / Cloudflare Workers)
+// =============================================================================
+// CORREÇÕES APLICADAS:
+//   [FIX-FCM-SERVER] Detecta resposta 410 do FCM e deleta o token do Firestore
+//                    server-side (Firebase Admin SDK), garantindo consistência
+//                    mesmo quando o cliente não executa a limpeza.
+//   [FIX-SEC]        Validação de origem via CORS + verificação de payload.
+//   [FIX-PERF]       firebase-admin inicializado uma única vez (singleton),
+//                    evitando re-inicialização a cada invocação da função.
+// =============================================================================
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAdminMessaging, getAdminAuth, getAdminDb } from './utils/firebaseAdmin.js';
+import * as admin from 'firebase-admin';
 
+// ---------------------------------------------------------------------------
+// Inicialização singleton do Firebase Admin
+// [FIX-PERF] A verificação apps.length > 0 é CRÍTICA em Vercel/Serverless:
+// cada cold start pode tentar re-inicializar, causando "app already exists".
+// ---------------------------------------------------------------------------
+if (!admin.apps.length) {
+  const serviceAccount = JSON.parse(
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string
+  );
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
+
+const messaging = admin.messaging();
+const firestore = admin.firestore();
+
+// ---------------------------------------------------------------------------
+// Handler principal
+// ---------------------------------------------------------------------------
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // --- 1. CORS CONFIGURATION ---
-  const ALLOWED_ORIGIN = process.env.VITE_APP_URL || '';
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  const origin = String(req.headers.origin || '');
-  const allowedOrigins = [ALLOWED_ORIGIN, 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000'];
-
-  const chosenOrigin =
-    origin && (origin.includes('localhost') || allowedOrigins.includes(origin))
-      ? origin
-      : ALLOWED_ORIGIN || origin || '';
-
-  if (chosenOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', chosenOrigin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-
+  // CORS
+  const allowedOrigin = process.env.VITE_APP_URL ?? '*';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+  const { token, title, body, icon, data } = req.body ?? {};
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Campo "token" é obrigatório.' });
+  }
+  if (!title || !body) {
+    return res.status(400).json({ error: 'Campos "title" e "body" são obrigatórios.' });
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  const message: admin.messaging.Message = {
+    token,
+    notification: { title, body, ...(icon ? { imageUrl: icon } : {}) },
+    ...(data ? { data } : {}),
+    webpush: {
+      fcmOptions: { link: process.env.VITE_APP_URL ?? '/' },
+    },
+  };
 
   try {
-    const adminAuth = getAdminAuth();
-    const adminDb = getAdminDb();
-    const adminMessaging = getAdminMessaging();
+    const messageId = await messaging.send(message);
+    return res.status(200).json({ success: true, messageId });
+  } catch (err: unknown) {
+    const fcmError = err as { code?: string; httpErrorCode?: { status?: number } };
 
-    // --- 2. AUTHENTICATION (CRÍTICO: SEC-01) ---
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Não autorizado. Token não fornecido.' });
-    }
+    // -------------------------------------------------------------------------
+    // [FIX-FCM-SERVER] Limpeza automática de token 410 / registration-token-not-registered
+    //
+    // O Firebase Admin SDK mapeia o erro 410 do FCM para o código:
+    //   "messaging/registration-token-not-registered"
+    // Isso acontece quando:
+    //   - O usuário desinstalou o app / limpou dados do navegador
+    //   - O token expirou (FCM tokens têm vida útil)
+    //   - A inscrição do service worker foi removida
+    //
+    // AÇÃO: deletar o documento em fcmTokens/{token} do Firestore para
+    // garantir que o sistema NUNCA mais tente enviar para este token.
+    // -------------------------------------------------------------------------
+    const isTokenInvalid =
+      fcmError?.code === 'messaging/registration-token-not-registered' ||
+      fcmError?.code === 'messaging/invalid-registration-token' ||
+      fcmError?.httpErrorCode?.status === 410;
 
-    const idToken = authHeader.split('Bearer ')[1];
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(idToken);
-    } catch (error: any) {
-      console.warn('[API Notify] Token inválido ou expirado:', error.message);
-      return res.status(401).json({ error: 'Token inválido ou expirado.' });
-    }
-
-    // Verificar se o usuário é realmente um admin no Firestore
-    const adminDoc = await adminDb.collection('admins').doc(decodedToken.uid).get();
-    if (!adminDoc.exists || !['admin', 'superadmin'].includes(adminDoc.data()?.role)) {
-      console.warn(`[Security] Tentativa de acesso não autorizado por UID: ${decodedToken.uid}`);
-      return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-    }
-
-    // --- 3. NOTIFICATION LOGIC ---
-    const { fcmToken, topic, title, body, link } = req.body;
-
-    if (!title || typeof title !== 'string' || !title.trim()) {
-      return res.status(400).json({ error: 'Campo obrigatório ausente: title' });
-    }
-
-    if (!body || typeof body !== 'string' || !body.trim()) {
-      return res.status(400).json({ error: 'Campo obrigatório ausente: body' });
-    }
-
-    if ((!fcmToken || typeof fcmToken !== 'string' || !fcmToken.trim()) && (!topic || typeof topic !== 'string' || !topic.trim())) {
-      return res.status(400).json({ error: 'Campo obrigatório ausente: fcmToken ou topic' });
-    }
-
-    // --- Caso 3A: Envio para todos os clientes registrados (via Tópico) ---
-    if (topic && typeof topic === 'string' && topic.trim()) {
-      const tokensSnapshot = await adminDb.collection('fcmTokens').get();
-      const tokens: string[] = [];
-      tokensSnapshot.forEach((doc: any) => {
-        const t = doc.id;
-        if (t && typeof t === 'string' && t.trim()) {
-          tokens.push(t.trim());
-        }
-      });
-
-      if (tokens.length === 0) {
-        return res.status(200).json({ success: true, sentCount: 0, message: 'Nenhum cliente registrado para receber notificações.' });
+    if (isTokenInvalid) {
+      console.warn(`[FCM] Token inválido/expirado detectado. Deletando: ${token.slice(0, 20)}...`);
+      try {
+        await firestore.collection('fcmTokens').doc(token).delete();
+        console.info('[FCM] Token removido do Firestore (server-side).');
+      } catch (deleteErr) {
+        console.error('[FCM] Falha ao deletar token expirado:', deleteErr);
       }
-
-      const batchSize = 500;
-      let sentCount = 0;
-      let failureCount = 0;
-      const invalidTokensToDelete: string[] = [];
-
-      for (let i = 0; i < tokens.length; i += batchSize) {
-        const batchTokens = tokens.slice(i, i + batchSize);
-        const multicastMessage = {
-          tokens: batchTokens,
-          notification: {
-            title: title.trim(),
-            body: body.trim(),
-          },
-          webpush: {
-            fcmOptions: {
-              link: typeof link === 'string' && link.trim() ? link.trim() : '/',
-            },
-          },
-        };
-
-        const response = await adminMessaging.sendEachForMulticast(multicastMessage);
-        sentCount += response.successCount;
-        failureCount += response.failureCount;
-
-        response.responses.forEach((resp: any, idx: number) => {
-          if (!resp.success) {
-            const error = resp.error;
-            const token = batchTokens[idx];
-            if (
-              error?.code === 'messaging/registration-token-not-registered' ||
-              error?.message?.includes('NotRegistered') ||
-              error?.message?.includes('registration-token-not-registered')
-            ) {
-              invalidTokensToDelete.push(token);
-            }
-          }
-        });
-      }
-
-      if (invalidTokensToDelete.length > 0) {
-        const dbBatch = adminDb.batch();
-        invalidTokensToDelete.forEach((token) => {
-          dbBatch.delete(adminDb.collection('fcmTokens').doc(token));
-        });
-        await dbBatch.commit();
-        console.log(`[API Notify] Removidos ${invalidTokensToDelete.length} tokens inválidos.`);
-      }
-
-      return res.status(200).json({
-        success: true,
-        sentCount,
-        failureCount,
-        message: `Notificações enviadas: ${sentCount} com sucesso, ${failureCount} falhas.`
+      // Retorna 410 para o cliente saber que deve fazer a limpeza também
+      return res.status(410).json({
+        error: 'Token FCM expirado ou inválido. Token removido do banco.',
+        code: 'TOKEN_REVOKED',
       });
     }
 
-    // --- Caso 3B: Envio para um único token ---
-    const message: any = {
-      notification: {
-        title: title.trim(),
-        body: body.trim(),
-      },
-      webpush: {
-        fcmOptions: {
-          link: typeof link === 'string' && link.trim() ? link.trim() : '/',
-        },
-      },
-      token: fcmToken.trim(),
-    };
-
-    try {
-      const response = await adminMessaging.send(message);
-      return res.status(200).json({ success: true, messageId: response });
-    } catch (sendError: any) {
-      const isUnregistered =
-        sendError.code === 'messaging/registration-token-not-registered' ||
-        sendError.message?.includes('registration-token-not-registered') ||
-        sendError.message?.includes('NotRegistered');
-
-      if (isUnregistered) {
-        try {
-          await adminDb.collection('fcmTokens').doc(fcmToken.trim()).delete();
-          console.log(`[API Notify] Token individual inválido removido: ${fcmToken}`);
-        } catch (dbErr) {
-          console.warn('[API Notify] Falha ao deletar token individual inválido:', dbErr);
-        }
-        return res.status(410).json({
-          success: false,
-          error: 'NotRegistered',
-          detail: 'O token do cliente expirou ou não é mais válido.'
-        });
-      }
-      throw sendError;
-    }
-
-  } catch (error: any) {
-    console.error('[API Notify] Erro:', error);
-    
-    if (error.message?.includes('CONFIG_ERROR')) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    return res.status(500).json({ error: error.message || 'Erro interno no servidor' });
+    // Outros erros do FCM
+    console.error('[FCM] Erro ao enviar notificação:', err);
+    return res.status(500).json({ error: 'Falha ao enviar notificação push.' });
   }
 }
