@@ -351,7 +351,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     changeFor,
     totalGeral,
     fcmToken,
-    notificationsEnabled,
     items,
     selectedStoreId,
     selectedStoreLabel,
