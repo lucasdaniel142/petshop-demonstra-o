@@ -244,6 +244,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
       console.log('[CartDrawer] Token FCM do localStorage:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
 
+      // Atualiza o token FCM com o telefone do cliente
+      if (fcmToken && cleanPhone) {
+        try {
+          const { updateDoc: updateDocFirestore, doc: docFirestore } = await import('firebase/firestore');
+          await updateDocFirestore(docFirestore(db, 'fcmTokens', fcmToken), {
+            phone: cleanPhone,
+            lastUsed: serverTimestamp(),
+          });
+          console.log('[CartDrawer] Token FCM atualizado com telefone:', cleanPhone);
+        } catch (e) {
+          console.warn('[CartDrawer] Erro ao atualizar token com telefone:', e);
+        }
+      }
+
       let changeForNum: number | null = null;
       if (paymentMethod === 'Dinheiro' && changeFor) {
         changeForNum = parseFloat(changeFor.replace(',', '.'));

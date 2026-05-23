@@ -14,7 +14,7 @@ import {
   Trash2,
   MessageCircle
 } from 'lucide-react';
-import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc, updateDoc, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../../shared/lib/firebase';
 import type { Order, PaymentMethodType, OrderStatus } from '../../shared/types';
 
@@ -259,10 +259,30 @@ export const OrderManager: React.FC = () => {
       });
 
       const order = orders.find(o => o.id === orderId);
-      const fcmToken = (order as any).fcmToken;
+      let fcmToken = (order as any).fcmToken;
       
       console.log('[OrderManager] Atualizando pedido:', orderId, 'para status:', newStatus);
       console.log('[OrderManager] Token FCM do pedido:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
+      
+      // Se o pedido não tem token, tenta buscar pelo telefone do cliente
+      if (!fcmToken && order?.phone) {
+        console.log('[OrderManager] Pedido sem token, buscando token pelo telefone:', order.phone);
+        try {
+          const fcmTokensSnapshot = await getDocs(
+            query(collection(db, 'fcmTokens'), where('phone', '==', order.phone))
+          );
+          if (!fcmTokensSnapshot.empty) {
+            // Usa o token mais recente para este telefone
+            const tokenDoc = fcmTokensSnapshot.docs[0];
+            fcmToken = tokenDoc.id;
+            console.log('[OrderManager] Token encontrado pelo telefone:', fcmToken.slice(0, 20) + '...');
+          } else {
+            console.log('[OrderManager] Nenhum token encontrado para o telefone:', order.phone);
+          }
+        } catch (e) {
+          console.warn('[OrderManager] Erro ao buscar tokens FCM:', e);
+        }
+      }
       
       if (fcmToken) {
         const label = STATUS_CONFIG[newStatus]?.label || newStatus;
@@ -313,6 +333,7 @@ export const OrderManager: React.FC = () => {
         }
       } else {
         console.warn('[OrderManager] Pedido não tem token FCM - notificação não enviada');
+        console.warn('[OrderManager] O cliente precisa fazer um novo pedido para receber notificações');
       }
     } catch (err) {
       console.error('[OrderManager] Erro ao atualizar status:', err);

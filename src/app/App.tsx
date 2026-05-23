@@ -58,6 +58,7 @@ export const App: React.FC = () => {
               lastUsed: serverTimestamp(),
               createdAt: serverTimestamp(),
               platform: navigator.userAgent,
+              phone: null, // Será atualizado quando o cliente fornecer o telefone
             });
             // Salva no localStorage para uso no checkout
             localStorage.setItem('fcmToken', token);
@@ -77,6 +78,7 @@ export const App: React.FC = () => {
               lastUsed: serverTimestamp(),
               createdAt: serverTimestamp(),
               platform: navigator.userAgent,
+              phone: null, // Será atualizado quando o cliente fornecer o telefone
             });
             // Salva no localStorage para uso no checkout
             localStorage.setItem('fcmToken', token);
