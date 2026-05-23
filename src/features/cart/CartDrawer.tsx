@@ -244,6 +244,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
       console.log('[CartDrawer] Token FCM do localStorage:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
 
+      if (!fcmToken) {
+        alert('⚠️ Token de notificação não encontrado. As notificações podem não funcionar.');
+      }
+
       // Atualiza o token FCM com o telefone do cliente
       if (fcmToken && cleanPhone) {
         try {
