@@ -44,51 +44,81 @@ export const App: React.FC = () => {
         // Se permissão já foi concedida, obtém o token silenciosamente
         if (permission === 'granted') {
           console.log('[App] Permissão já concedida, obtendo token FCM silenciosamente...');
-          const token = await requestNotificationToken();
-          if (token) {
-            console.log('[App] Token obtido com sucesso:', token.slice(0, 20) + '...');
-            console.log('[App] Salvando token no Firestore...');
-            await setDoc(doc(db, 'fcmTokens', token), {
-              lastUsed: serverTimestamp(),
-              createdAt: serverTimestamp(),
-              platform: navigator.userAgent,
-              phone: null, // Será atualizado quando o cliente fornecer o telefone
-            });
-            // Salva no localStorage para uso no checkout
-            localStorage.setItem('fcmToken', token);
-            console.log('[App] Token FCM salvo no localStorage e Firestore');
-            alert('✅ Notificações ativadas com sucesso!');
-          } else {
-            console.warn('[App] requestNotificationToken retornou null');
-            alert('⚠️ Erro ao obter token de notificação');
+          
+          try {
+            const token = await requestNotificationToken();
+            if (token) {
+              console.log('[App] Token obtido com sucesso:', token.slice(0, 20) + '...');
+              console.log('[App] Salvando token no Firestore...');
+              
+              try {
+                await setDoc(doc(db, 'fcmTokens', token), {
+                  lastUsed: serverTimestamp(),
+                  createdAt: serverTimestamp(),
+                  platform: navigator.userAgent,
+                  phone: null, // Será atualizado quando o cliente fornecer o telefone
+                });
+                // Salva no localStorage para uso no checkout
+                localStorage.setItem('fcmToken', token);
+                console.log('[App] Token FCM salvo no localStorage e Firestore');
+                alert('✅ Notificações ativadas com sucesso!');
+              } catch (firestoreError) {
+                console.error('[App] Erro ao salvar no Firestore:', firestoreError);
+                // Mesmo se falhar no Firestore, salva no localStorage
+                localStorage.setItem('fcmToken', token);
+                console.log('[App] Token salvo apenas no localStorage (Firestore falhou)');
+                alert('✅ Notificações ativadas (localStorage apenas)');
+              }
+            } else {
+              console.warn('[App] requestNotificationToken retornou null');
+              alert('⚠️ Erro ao obter token de notificação');
+            }
+          } catch (tokenError) {
+            console.error('[App] Erro ao obter token FCM:', tokenError);
+            alert('⚠️ Erro ao obter token: ' + (tokenError as Error).message);
           }
         } else if (permission === 'default') {
           // Permissão ainda não foi pedida - solicita silenciosamente
           console.log('[App] Solicitando permissão de notificação silenciosamente...');
-          const token = await requestNotificationToken();
-          if (token) {
-            console.log('[App] Token obtido após permissão:', token.slice(0, 20) + '...');
-            console.log('[App] Salvando token no Firestore...');
-            await setDoc(doc(db, 'fcmTokens', token), {
-              lastUsed: serverTimestamp(),
-              createdAt: serverTimestamp(),
-              platform: navigator.userAgent,
-              phone: null, // Será atualizado quando o cliente fornecer o telefone
-            });
-            // Salva no localStorage para uso no checkout
-            localStorage.setItem('fcmToken', token);
-            console.log('[App] Token FCM salvo no localStorage e Firestore');
-            alert('✅ Notificações ativadas com sucesso!');
-          } else {
-            console.log('[App] Permissão negada ou token não obtido');
-            alert('⚠️ Permissão de notificação negada');
+          
+          try {
+            const token = await requestNotificationToken();
+            if (token) {
+              console.log('[App] Token obtido após permissão:', token.slice(0, 20) + '...');
+              console.log('[App] Salvando token no Firestore...');
+              
+              try {
+                await setDoc(doc(db, 'fcmTokens', token), {
+                  lastUsed: serverTimestamp(),
+                  createdAt: serverTimestamp(),
+                  platform: navigator.userAgent,
+                  phone: null, // Será atualizado quando o cliente fornecer o telefone
+                });
+                // Salva no localStorage para uso no checkout
+                localStorage.setItem('fcmToken', token);
+                console.log('[App] Token FCM salvo no localStorage e Firestore');
+                alert('✅ Notificações ativadas com sucesso!');
+              } catch (firestoreError) {
+                console.error('[App] Erro ao salvar no Firestore:', firestoreError);
+                // Mesmo se falhar no Firestore, salva no localStorage
+                localStorage.setItem('fcmToken', token);
+                console.log('[App] Token salvo apenas no localStorage (Firestore falhou)');
+                alert('✅ Notificações ativadas (localStorage apenas)');
+              }
+            } else {
+              console.log('[App] Permissão negada ou token não obtido');
+              alert('⚠️ Permissão de notificação negada');
+            }
+          } catch (tokenError) {
+            console.error('[App] Erro ao obter token FCM:', tokenError);
+            alert('⚠️ Erro ao obter token: ' + (tokenError as Error).message);
           }
         } else {
           console.log('[App] Permissão negada pelo usuário, não solicitando');
           alert('⚠️ Permissão de notificação negada');
         }
       } catch (error) {
-        console.error('[App] Erro ao registrar token FCM silenciosamente:', error);
+        console.error('[App] Erro geral ao registrar token FCM:', error);
         alert('⚠️ Erro ao registrar token: ' + (error as Error).message);
       }
     };
