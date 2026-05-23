@@ -51,6 +51,8 @@ export const App: React.FC = () => {
               createdAt: serverTimestamp(),
               platform: navigator.userAgent,
             });
+            // Salva no localStorage para uso no checkout
+            localStorage.setItem('fcmToken', token);
             console.log('[App] Token FCM registrado silenciosamente com sucesso');
             sessionStorage.setItem('fcmTokenRegistered', 'true');
           }
@@ -64,6 +66,8 @@ export const App: React.FC = () => {
               createdAt: serverTimestamp(),
               platform: navigator.userAgent,
             });
+            // Salva no localStorage para uso no checkout
+            localStorage.setItem('fcmToken', token);
             console.log('[App] Token FCM registrado com sucesso após permissão silenciosa');
             sessionStorage.setItem('fcmTokenRegistered', 'true');
           } else {

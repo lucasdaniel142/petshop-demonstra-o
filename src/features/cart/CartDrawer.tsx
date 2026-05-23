@@ -92,6 +92,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Busca token FCM do localStorage (registrado silenciosamente pelo App.tsx)
+  const fcmToken = typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null;
+
   const isNameInvalid = checkoutError !== null && !customerName.trim();
   const isAddressInvalid = checkoutError !== null && !deliveryAddress.trim();
   const isCepInvalid = checkoutError !== null && cep.replace(/\D/g, '').length !== 8;
@@ -261,6 +264,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             : 'maquininha',
         changeFor: changeForNum,
         distanceKm: activeDelivery?.distanceKm || 0,
+        fcmToken: fcmToken,
       };
 
       // Salva pedido no Firebase via API (server-side)
