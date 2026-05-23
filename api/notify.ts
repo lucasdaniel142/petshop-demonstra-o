@@ -65,8 +65,8 @@ if (!admin.apps.length) {
   }
 }
 
-const messaging = admin.messaging();
-const firestore = admin.firestore();
+const messaging = admin.apps.length > 0 ? admin.messaging() : null;
+const firestore = admin.apps.length > 0 ? admin.firestore() : null;
 
 // ---------------------------------------------------------------------------
 // Handler principal
@@ -80,6 +80,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+  // Verificar se Firebase Admin foi inicializado corretamente
+  if (!messaging || !firestore) {
+    console.error('[FCM] Firebase Admin não foi inicializado corretamente');
+    return res.status(500).json({ error: 'Firebase Admin não inicializado. Verifique FIREBASE_SERVICE_ACCOUNT_KEY.' });
+  }
 
   const { token, title, body, icon, data } = req.body ?? {};
 
