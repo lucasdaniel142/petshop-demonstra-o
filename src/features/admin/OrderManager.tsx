@@ -19,11 +19,11 @@ import { db, auth } from '../../shared/lib/firebase';
 import type { Order, PaymentMethodType, OrderStatus } from '../../shared/types';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; whatsappMessage: string }> = {
-  pending: { label: '🔔 Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100', whatsappMessage: 'Olá! Recebemos seu pedido e já estamos começando a prepará-lo. Em breve você receberá atualizações sobre o status.' },
-  preparing: { label: '📦 Em Separação', color: 'text-blue-700', bg: 'bg-blue-100', whatsappMessage: 'Olá! Seu pedido está sendo separado e preparado com carinho. Em breve sairá para entrega.' },
-  shipped: { label: '🚚 Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100', whatsappMessage: 'Olá! Seu pedido saiu para entrega e está a caminho. Fique atento para recebê-lo!' },
-  delivered: { label: '✅ Entregue', color: 'text-green-700', bg: 'bg-green-100', whatsappMessage: 'Olá! Seu pedido foi entregue com sucesso. Agradecemos a preferência!' },
-  cancelled: { label: '❌ Cancelado', color: 'text-red-700', bg: 'bg-red-100', whatsappMessage: 'Olá! Informamos que seu pedido foi cancelado. Entre em contato conosco para mais informações.' },
+  pending: { label: '🔔 Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100', whatsappMessage: 'Olá! 🔔 Recebemos seu pedido e já estamos começando a prepará-lo. Em breve você receberá atualizações sobre o status.' },
+  preparing: { label: '📦 Em Separação', color: 'text-blue-700', bg: 'bg-blue-100', whatsappMessage: 'Olá! 📦 Seu pedido está sendo separado e preparado com carinho. Em breve sairá para entrega.' },
+  shipped: { label: '🚚 Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100', whatsappMessage: 'Olá! 🚚 Seu pedido saiu para entrega e está a caminho. Fique atento para recebê-lo!' },
+  delivered: { label: '✅ Entregue', color: 'text-green-700', bg: 'bg-green-100', whatsappMessage: 'Olá! ✅ Seu pedido foi entregue com sucesso. Agradecemos a preferência!' },
+  cancelled: { label: '❌ Cancelado', color: 'text-red-700', bg: 'bg-red-100', whatsappMessage: 'Olá! ❌ Informamos que seu pedido foi cancelado. Entre em contato conosco para mais informações.' },
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
