@@ -32,13 +32,6 @@ export const App: React.FC = () => {
   useEffect(() => {
     const registerSilentToken = async () => {
       try {
-        // Verifica se já tentamos registrar antes (evita tentativas duplicadas)
-        const hasRegistered = sessionStorage.getItem('fcmTokenRegistered');
-        if (hasRegistered) {
-          console.log('[App] Token já foi registrado anteriormente, pulando...');
-          return;
-        }
-
         // Verifica suporte e permissão
         if (!('Notification' in window)) {
           console.log('[App] Navegador não suporta notificações');
@@ -63,11 +56,9 @@ export const App: React.FC = () => {
             // Salva no localStorage para uso no checkout
             localStorage.setItem('fcmToken', token);
             console.log('[App] Token FCM salvo no localStorage e Firestore');
-            sessionStorage.setItem('fcmTokenRegistered', 'true');
             alert('✅ Notificações ativadas com sucesso!');
           } else {
             console.warn('[App] requestNotificationToken retornou null');
-            sessionStorage.setItem('fcmTokenRegistered', 'true');
             alert('⚠️ Erro ao obter token de notificação');
           }
         } else if (permission === 'default') {
@@ -85,21 +76,18 @@ export const App: React.FC = () => {
             // Salva no localStorage para uso no checkout
             localStorage.setItem('fcmToken', token);
             console.log('[App] Token FCM salvo no localStorage e Firestore');
-            sessionStorage.setItem('fcmTokenRegistered', 'true');
             alert('✅ Notificações ativadas com sucesso!');
           } else {
             console.log('[App] Permissão negada ou token não obtido');
-            sessionStorage.setItem('fcmTokenRegistered', 'true'); // Marca como tentado mesmo se falhou
             alert('⚠️ Permissão de notificação negada');
           }
         } else {
           console.log('[App] Permissão negada pelo usuário, não solicitando');
-          sessionStorage.setItem('fcmTokenRegistered', 'true');
           alert('⚠️ Permissão de notificação negada');
         }
       } catch (error) {
         console.error('[App] Erro ao registrar token FCM silenciosamente:', error);
-        sessionStorage.setItem('fcmTokenRegistered', 'true'); // Marca como tentado mesmo se falhou
+        alert('⚠️ Erro ao registrar token: ' + (error as Error).message);
       }
     };
 
