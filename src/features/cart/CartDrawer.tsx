@@ -244,15 +244,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
       console.log('[CartDrawer] Token FCM do localStorage:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
 
-      if (!fcmToken) {
-        alert('⚠️ Token de notificação não encontrado. As notificações podem não funcionar.');
+      // Garante que fcmToken seja null se for string vazia ou inválida
+      const finalFcmToken = (fcmToken && fcmToken !== 'false' && fcmToken !== 'null') ? fcmToken : null;
+
+      if (!finalFcmToken) {
+        console.warn('[CartDrawer] Token FCM inválido ou não encontrado');
       }
 
       // Atualiza o token FCM com o telefone do cliente
-      if (fcmToken && cleanPhone) {
+      if (finalFcmToken && cleanPhone) {
         try {
           const { updateDoc: updateDocFirestore, doc: docFirestore } = await import('firebase/firestore');
-          await updateDocFirestore(docFirestore(db, 'fcmTokens', fcmToken), {
+          await updateDocFirestore(docFirestore(db, 'fcmTokens', finalFcmToken), {
             phone: cleanPhone,
             lastUsed: serverTimestamp(),
           });
@@ -272,6 +275,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         customerName: sanitizedName,
         customerPhone: cleanPhone,
         deliveryAddress: sanitizedAddress,
+        fcmToken: finalFcmToken,
         cep: cep.replace(/\D/g, ''),
         storeId: selectedStoreId,
         paymentMethod:
@@ -284,7 +288,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             : 'maquininha',
         changeFor: changeForNum,
         distanceKm: activeDelivery?.distanceKm || 0,
-        fcmToken: fcmToken,
       };
 
       console.log('[CartDrawer] Enviando checkoutPayload com fcmToken:', !!fcmToken);
