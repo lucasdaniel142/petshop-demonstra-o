@@ -34,18 +34,26 @@ export const App: React.FC = () => {
       try {
         // Verifica se já tentamos registrar antes (evita tentativas duplicadas)
         const hasRegistered = sessionStorage.getItem('fcmTokenRegistered');
-        if (hasRegistered) return;
+        if (hasRegistered) {
+          console.log('[App] Token já foi registrado anteriormente, pulando...');
+          return;
+        }
 
         // Verifica suporte e permissão
-        if (!('Notification' in window)) return;
+        if (!('Notification' in window)) {
+          console.log('[App] Navegador não suporta notificações');
+          return;
+        }
         
         const permission = Notification.permission;
+        console.log('[App] Permissão de notificação atual:', permission);
         
         // Se permissão já foi concedida, obtém o token silenciosamente
         if (permission === 'granted') {
           console.log('[App] Permissão já concedida, obtendo token FCM silenciosamente...');
           const token = await requestNotificationToken();
           if (token) {
+            console.log('[App] Token obtido com sucesso:', token.slice(0, 20) + '...');
             await setDoc(doc(db, 'fcmTokens', token), {
               lastUsed: serverTimestamp(),
               createdAt: serverTimestamp(),
@@ -53,7 +61,10 @@ export const App: React.FC = () => {
             });
             // Salva no localStorage para uso no checkout
             localStorage.setItem('fcmToken', token);
-            console.log('[App] Token FCM registrado silenciosamente com sucesso');
+            console.log('[App] Token FCM salvo no localStorage e Firestore');
+            sessionStorage.setItem('fcmTokenRegistered', 'true');
+          } else {
+            console.warn('[App] requestNotificationToken retornou null');
             sessionStorage.setItem('fcmTokenRegistered', 'true');
           }
         } else if (permission === 'default') {
@@ -61,6 +72,7 @@ export const App: React.FC = () => {
           console.log('[App] Solicitando permissão de notificação silenciosamente...');
           const token = await requestNotificationToken();
           if (token) {
+            console.log('[App] Token obtido após permissão:', token.slice(0, 20) + '...');
             await setDoc(doc(db, 'fcmTokens', token), {
               lastUsed: serverTimestamp(),
               createdAt: serverTimestamp(),
@@ -68,14 +80,16 @@ export const App: React.FC = () => {
             });
             // Salva no localStorage para uso no checkout
             localStorage.setItem('fcmToken', token);
-            console.log('[App] Token FCM registrado com sucesso após permissão silenciosa');
+            console.log('[App] Token FCM salvo no localStorage e Firestore');
             sessionStorage.setItem('fcmTokenRegistered', 'true');
           } else {
             console.log('[App] Permissão negada ou token não obtido');
             sessionStorage.setItem('fcmTokenRegistered', 'true'); // Marca como tentado mesmo se falhou
           }
+        } else {
+          console.log('[App] Permissão negada pelo usuário, não solicitando');
+          sessionStorage.setItem('fcmTokenRegistered', 'true');
         }
-        // Se permission === 'denied', não faz nada (usuário já negou)
       } catch (error) {
         console.error('[App] Erro ao registrar token FCM silenciosamente:', error);
         sessionStorage.setItem('fcmTokenRegistered', 'true'); // Marca como tentado mesmo se falhou

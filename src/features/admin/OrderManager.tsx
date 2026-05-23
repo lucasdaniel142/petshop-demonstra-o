@@ -260,10 +260,16 @@ export const OrderManager: React.FC = () => {
 
       const order = orders.find(o => o.id === orderId);
       const fcmToken = (order as any).fcmToken;
+      
+      console.log('[OrderManager] Atualizando pedido:', orderId, 'para status:', newStatus);
+      console.log('[OrderManager] Token FCM do pedido:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
+      
       if (fcmToken) {
         const label = STATUS_CONFIG[newStatus]?.label || newStatus;
         const idToken = await auth.currentUser?.getIdToken();
 
+        console.log('[OrderManager] Enviando notificação para token:', fcmToken.slice(0, 20) + '...');
+        
         try {
           const res = await fetch('/api/notify', {
             method: 'POST',
@@ -278,6 +284,9 @@ export const OrderManager: React.FC = () => {
               link: '/',
             }),
           });
+          
+          console.log('[OrderManager] Resposta do /api/notify:', res.status, res.statusText);
+          
           if (!res.ok) {
             const raw = await res.text();
             let detail = `HTTP ${res.status}`;
@@ -296,12 +305,17 @@ export const OrderManager: React.FC = () => {
             } else {
               console.warn('[notify] Push não enviado:', detail);
             }
+          } else {
+            console.log('[OrderManager] Notificação enviada com sucesso!');
           }
         } catch (e) {
           console.warn('[notify] Falha na requisição:', e);
         }
+      } else {
+        console.warn('[OrderManager] Pedido não tem token FCM - notificação não enviada');
       }
     } catch (err) {
+      console.error('[OrderManager] Erro ao atualizar status:', err);
       alert('Erro ao atualizar status do pedido.');
     }
   };

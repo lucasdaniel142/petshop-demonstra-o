@@ -242,6 +242,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       const sanitizedName = sanitize(customerName);
       const sanitizedAddress = sanitize(deliveryAddress);
 
+      console.log('[CartDrawer] Token FCM do localStorage:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
+
       let changeForNum: number | null = null;
       if (paymentMethod === 'Dinheiro' && changeFor) {
         changeForNum = parseFloat(changeFor.replace(',', '.'));
@@ -266,6 +268,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         distanceKm: activeDelivery?.distanceKm || 0,
         fcmToken: fcmToken,
       };
+
+      console.log('[CartDrawer] Enviando checkoutPayload com fcmToken:', !!fcmToken);
 
       // Salva pedido no Firebase via API (server-side)
       const response = await fetch('/api/checkout', {
