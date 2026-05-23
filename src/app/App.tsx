@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../shared/contexts/AuthContext';
 import { Home } from '../features/catalog/Home';
@@ -7,6 +7,9 @@ import { InstallPWA } from '../shared/components/InstallPWA';
 import { LoadingFallback } from '../shared/components/LoadingFallback';
 import { ToastProvider } from '../shared/components/ToastProvider';
 import { ProtectedRoute } from '../features/admin/ProtectedRoute';
+import { requestNotificationToken } from '../shared/lib/notifications';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../shared/lib/firebase';
 
 /**
  * Lazy Loading de Componentes Administrativos
@@ -22,6 +25,62 @@ const OrderManager = lazy(() => import('../features/admin/OrderManager').then(m 
 const SettingsManager = lazy(() => import('../features/admin/SettingsManager').then(m => ({ default: m.SettingsManager })));
 
 export const App: React.FC = () => {
+  // ---------------------------------------------------------------------------
+  // Silent token registration - registra token FCM automaticamente na primeira carga
+  // sem depender de UI de opt-in ou banners
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const registerSilentToken = async () => {
+      try {
+        // Verifica se já tentamos registrar antes (evita tentativas duplicadas)
+        const hasRegistered = sessionStorage.getItem('fcmTokenRegistered');
+        if (hasRegistered) return;
+
+        // Verifica suporte e permissão
+        if (!('Notification' in window)) return;
+        
+        const permission = Notification.permission;
+        
+        // Se permissão já foi concedida, obtém o token silenciosamente
+        if (permission === 'granted') {
+          console.log('[App] Permissão já concedida, obtendo token FCM silenciosamente...');
+          const token = await requestNotificationToken();
+          if (token) {
+            await setDoc(doc(db, 'fcmTokens', token), {
+              lastUsed: serverTimestamp(),
+              createdAt: serverTimestamp(),
+              platform: navigator.userAgent,
+            });
+            console.log('[App] Token FCM registrado silenciosamente com sucesso');
+            sessionStorage.setItem('fcmTokenRegistered', 'true');
+          }
+        } else if (permission === 'default') {
+          // Permissão ainda não foi pedida - solicita silenciosamente
+          console.log('[App] Solicitando permissão de notificação silenciosamente...');
+          const token = await requestNotificationToken();
+          if (token) {
+            await setDoc(doc(db, 'fcmTokens', token), {
+              lastUsed: serverTimestamp(),
+              createdAt: serverTimestamp(),
+              platform: navigator.userAgent,
+            });
+            console.log('[App] Token FCM registrado com sucesso após permissão silenciosa');
+            sessionStorage.setItem('fcmTokenRegistered', 'true');
+          } else {
+            console.log('[App] Permissão negada ou token não obtido');
+            sessionStorage.setItem('fcmTokenRegistered', 'true'); // Marca como tentado mesmo se falhou
+          }
+        }
+        // Se permission === 'denied', não faz nada (usuário já negou)
+      } catch (error) {
+        console.error('[App] Erro ao registrar token FCM silenciosamente:', error);
+        sessionStorage.setItem('fcmTokenRegistered', 'true'); // Marca como tentado mesmo se falhou
+      }
+    };
+
+    registerSilentToken();
+  }, []);
+
   return (
     <AuthProvider>
       <ToastProvider>

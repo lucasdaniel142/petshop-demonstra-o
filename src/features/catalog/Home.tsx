@@ -15,7 +15,6 @@ import { CategoryNav } from './CategoryNav';
 import { CartDrawer } from '../cart/CartDrawer';
 import { ProductCard } from './ProductCard';
 import { NotificationBanner } from '../../shared/components/NotificationBanner';
-import { NotificationPermissionBanner } from '../../shared/components/NotificationPermissionBanner';
 import { useCart } from '../../shared/hooks/useCart';
 import type { FirestoreProduct, StoreId } from '../../shared/types';
 import { STORES, STORE_IDS, CATEGORY_OPTIONS, CATEGORY_KEYWORDS } from '../../shared/utils/constants';
@@ -270,7 +269,6 @@ export const Home: React.FC = () => {
 
   return (
     <div className="min-h-screen w-screen overflow-x-clip flex flex-col bg-bg text-text font-sans antialiased">
-      <NotificationPermissionBanner />
       <NotificationBanner />
       <div className={`sticky top-0 z-50 transition-shadow duration-300 ${isScrolled ? 'shadow-lg' : ''}`}>
         <Header

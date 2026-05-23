@@ -30,7 +30,6 @@ import { Link } from 'react-router-dom';
 // [FIX-4] Removidos: collection, addDoc (não utilizados — reduz bundle ~2 KB)
 import { serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
-import { requestNotificationToken } from '../../shared/lib/notifications';
 
 // ---------------------------------------------------------------------------
 // [FIX-3] Leitura segura do threshold de frete grátis por valor
@@ -92,7 +91,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fcmToken, setFcmToken] = useState<string | null>(null);
 
   const isNameInvalid = checkoutError !== null && !customerName.trim();
   const isAddressInvalid = checkoutError !== null && !deliveryAddress.trim();
@@ -241,20 +239,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       const sanitizedName = sanitize(customerName);
       const sanitizedAddress = sanitize(deliveryAddress);
 
-      // Resolução do token FCM (após bloquear o botão)
-      // Se o usuário já concedeu permissão via banner, tenta obter o token automaticamente
-      let finalFcmToken = fcmToken;
-      if (!fcmToken && Notification.permission === 'granted') {
-        finalFcmToken = await requestNotificationToken();
-        if (finalFcmToken) {
-          setFcmToken(finalFcmToken); // persiste no estado para submissões futuras
-          await setDoc(doc(db, 'fcmTokens', finalFcmToken), {
-            lastUsed: serverTimestamp(),
-            customerName: customerName.trim(),
-          });
-        }
-      }
-
       let changeForNum: number | null = null;
       if (paymentMethod === 'Dinheiro' && changeFor) {
         changeForNum = parseFloat(changeFor.replace(',', '.'));
@@ -277,7 +261,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             : 'maquininha',
         changeFor: changeForNum,
         distanceKm: activeDelivery?.distanceKm || 0,
-        fcmToken: finalFcmToken,
       };
 
       // Salva pedido no Firebase via API (server-side)
@@ -350,7 +333,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     paymentMethod,
     changeFor,
     totalGeral,
-    fcmToken,
     items,
     selectedStoreId,
     selectedStoreLabel,

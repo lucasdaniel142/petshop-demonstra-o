@@ -17,14 +17,52 @@ import * as admin from 'firebase-admin';
 // Inicialização singleton do Firebase Admin
 // [FIX-PERF] A verificação apps.length > 0 é CRÍTICA em Vercel/Serverless:
 // cada cold start pode tentar re-inicializar, causando "app already exists".
+// [FIX-500] Validação robusta da service account com logging detalhado
 // ---------------------------------------------------------------------------
 if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(
-    process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string
-  );
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+  try {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    
+    if (!serviceAccountKey) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não está definida nas variáveis de ambiente');
+    }
+    
+    console.log('[Firebase-Init] Validando JSON da service account...');
+    
+    // Validação prévia: verificar se é um JSON válido antes do parse
+    if (typeof serviceAccountKey !== 'string') {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não é uma string válida');
+    }
+    
+    const serviceAccount = JSON.parse(serviceAccountKey);
+    
+    // Validar campos obrigatórios da service account
+    const requiredFields = ['project_id', 'private_key', 'client_email'];
+    const missingFields = requiredFields.filter(field => !serviceAccount[field]);
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Service account JSON inválido: campos faltando [${missingFields.join(', ')}]`);
+    }
+    
+    console.log('[Firebase-Init] Service account validada com sucesso, inicializando app...');
+    
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    
+    console.log('[Firebase-Init] Firebase Admin inicializado com sucesso');
+  } catch (err) {
+    const error = err as Error;
+    console.error('[Firebase-Init] ERRO FATAL na inicialização do Firebase Admin:');
+    console.error('[Firebase-Init] Mensagem:', error.message);
+    console.error('[Firebase-Init] Stack:', error.stack);
+    console.error('[Firebase-Init] Variável FIREBASE_SERVICE_ACCOUNT_KEY existe?', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    console.error('[Firebase-Init] Tipo da variável:', typeof process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    console.error('[Firebase-Init] Primeiros 100 chars da variável:', process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.slice(0, 100));
+    
+    // Não relançar o erro - a função continuará mas falhará gracefulmente
+    // O erro será capturado no handler principal
+  }
 }
 
 const messaging = admin.messaging();
