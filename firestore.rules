@@ -125,12 +125,11 @@ service cloud.firestore {
 
     // --- COLEÇÃO: fcmTokens ---
     // Leitura: apenas admins
-    // Escrita: permite que qualquer usuário autenticado (incluindo anônimo) salve seu token
+    // Escrita: permite que qualquer usuário (incluindo não autenticado) salve seu token
     // Isso é necessário para que visitantes possam receber notificações push
     match /fcmTokens/{tokenId} {
       allow read: if isAdmin();
-      allow create, update: if request.auth != null // Permite auth anônimo para visitantes
-                            && request.resource.data.keys().hasOnly(['lastUsed', 'createdAt', 'platform', 'phone'])
+      allow create, update: if request.resource.data.keys().hasOnly(['lastUsed', 'createdAt', 'platform', 'phone'])
                             && (tokenId.size() > 10) // Evitar IDs curtos/lixo
                             && (!('phone' in request.resource.data) || request.resource.data.phone is string);
       allow delete: if isAdmin();

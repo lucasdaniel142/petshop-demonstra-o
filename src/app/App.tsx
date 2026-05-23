@@ -9,7 +9,7 @@ import { ToastProvider } from '../shared/components/ToastProvider';
 import { ProtectedRoute } from '../features/admin/ProtectedRoute';
 import { requestNotificationToken } from '../shared/lib/notifications';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db, ensureAnonymousAuth } from '../shared/lib/firebase';
+import { db } from '../shared/lib/firebase';
 
 /**
  * Lazy Loading de Componentes Administrativos
@@ -32,9 +32,6 @@ export const App: React.FC = () => {
   useEffect(() => {
     const registerSilentToken = async () => {
       try {
-        // Garante autenticação anônima para poder salvar no Firestore
-        await ensureAnonymousAuth();
-
         // Verifica suporte e permissão
         if (!('Notification' in window)) {
           console.log('[App] Navegador não suporta notificações');
@@ -50,6 +47,7 @@ export const App: React.FC = () => {
           const token = await requestNotificationToken();
           if (token) {
             console.log('[App] Token obtido com sucesso:', token.slice(0, 20) + '...');
+            console.log('[App] Salvando token no Firestore...');
             await setDoc(doc(db, 'fcmTokens', token), {
               lastUsed: serverTimestamp(),
               createdAt: serverTimestamp(),
@@ -70,6 +68,7 @@ export const App: React.FC = () => {
           const token = await requestNotificationToken();
           if (token) {
             console.log('[App] Token obtido após permissão:', token.slice(0, 20) + '...');
+            console.log('[App] Salvando token no Firestore...');
             await setDoc(doc(db, 'fcmTokens', token), {
               lastUsed: serverTimestamp(),
               createdAt: serverTimestamp(),
