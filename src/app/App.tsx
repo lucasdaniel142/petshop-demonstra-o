@@ -8,8 +8,6 @@ import { LoadingFallback } from '../shared/components/LoadingFallback';
 import { ToastProvider } from '../shared/components/ToastProvider';
 import { ProtectedRoute } from '../features/admin/ProtectedRoute';
 import { requestNotificationToken } from '../shared/lib/notifications';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../shared/lib/firebase';
 
 /**
  * Lazy Loading de Componentes Administrativos
@@ -49,26 +47,10 @@ export const App: React.FC = () => {
             const token = await requestNotificationToken();
             if (token) {
               console.log('[App] Token obtido com sucesso:', token.slice(0, 20) + '...');
-              console.log('[App] Salvando token no Firestore...');
-              
-              try {
-                await setDoc(doc(db, 'fcmTokens', token), {
-                  lastUsed: serverTimestamp(),
-                  createdAt: serverTimestamp(),
-                  platform: navigator.userAgent,
-                  phone: null, // Será atualizado quando o cliente fornecer o telefone
-                });
-                // Salva no localStorage para uso no checkout
-                localStorage.setItem('fcmToken', token);
-                console.log('[App] Token FCM salvo no localStorage e Firestore');
-                alert('✅ Notificações ativadas com sucesso!');
-              } catch (firestoreError) {
-                console.error('[App] Erro ao salvar no Firestore:', firestoreError);
-                // Mesmo se falhar no Firestore, salva no localStorage
-                localStorage.setItem('fcmToken', token);
-                console.log('[App] Token salvo apenas no localStorage (Firestore falhou)');
-                alert('✅ Notificações ativadas (localStorage apenas)');
-              }
+              // Salva apenas no localStorage para uso no checkout
+              localStorage.setItem('fcmToken', token);
+              console.log('[App] Token FCM salvo no localStorage');
+              alert('✅ Notificações ativadas com sucesso!');
             } else {
               console.warn('[App] requestNotificationToken retornou null');
               alert('⚠️ Erro ao obter token de notificação');
@@ -85,26 +67,10 @@ export const App: React.FC = () => {
             const token = await requestNotificationToken();
             if (token) {
               console.log('[App] Token obtido após permissão:', token.slice(0, 20) + '...');
-              console.log('[App] Salvando token no Firestore...');
-              
-              try {
-                await setDoc(doc(db, 'fcmTokens', token), {
-                  lastUsed: serverTimestamp(),
-                  createdAt: serverTimestamp(),
-                  platform: navigator.userAgent,
-                  phone: null, // Será atualizado quando o cliente fornecer o telefone
-                });
-                // Salva no localStorage para uso no checkout
-                localStorage.setItem('fcmToken', token);
-                console.log('[App] Token FCM salvo no localStorage e Firestore');
-                alert('✅ Notificações ativadas com sucesso!');
-              } catch (firestoreError) {
-                console.error('[App] Erro ao salvar no Firestore:', firestoreError);
-                // Mesmo se falhar no Firestore, salva no localStorage
-                localStorage.setItem('fcmToken', token);
-                console.log('[App] Token salvo apenas no localStorage (Firestore falhou)');
-                alert('✅ Notificações ativadas (localStorage apenas)');
-              }
+              // Salva apenas no localStorage para uso no checkout
+              localStorage.setItem('fcmToken', token);
+              console.log('[App] Token FCM salvo no localStorage');
+              alert('✅ Notificações ativadas com sucesso!');
             } else {
               console.log('[App] Permissão negada ou token não obtido');
               alert('⚠️ Permissão de notificação negada');
