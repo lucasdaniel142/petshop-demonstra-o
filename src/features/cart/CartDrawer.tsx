@@ -251,19 +251,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         console.warn('[CartDrawer] Token FCM inválido ou não encontrado');
       }
 
-      // Atualiza o token FCM com o telefone do cliente
-      if (finalFcmToken && cleanPhone) {
-        try {
-          const { updateDoc: updateDocFirestore, doc: docFirestore } = await import('firebase/firestore');
-          await updateDocFirestore(docFirestore(db, 'fcmTokens', finalFcmToken), {
-            phone: cleanPhone,
-            lastUsed: serverTimestamp(),
-          });
-          console.log('[CartDrawer] Token FCM atualizado com telefone:', cleanPhone);
-        } catch (e) {
-          console.warn('[CartDrawer] Erro ao atualizar token com telefone:', e);
-        }
-      }
+      // Atualização do token com telefone desabilitada temporariamente devido a erros de permissão no Firestore
+      // O token já está no localStorage e será enviado no checkout
 
       let changeForNum: number | null = null;
       if (paymentMethod === 'Dinheiro' && changeFor) {

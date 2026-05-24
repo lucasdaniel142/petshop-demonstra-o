@@ -66,8 +66,8 @@ if (!admin.apps || admin.apps.length === 0) {
   }
 }
 
-const messaging = admin.apps.length > 0 ? admin.messaging() : null;
-const firestore = admin.apps.length > 0 ? admin.firestore() : null;
+const messaging = admin.apps && admin.apps.length > 0 ? admin.messaging() : null;
+const firestore = admin.apps && admin.apps.length > 0 ? admin.firestore() : null;
 
 // ---------------------------------------------------------------------------
 // Handler principal
