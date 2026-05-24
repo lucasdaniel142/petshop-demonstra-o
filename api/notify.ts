@@ -18,8 +18,9 @@ import * as admin from 'firebase-admin';
 // [FIX-PERF] A verificação apps.length > 0 é CRÍTICA em Vercel/Serverless:
 // cada cold start pode tentar re-inicializar, causando "app already exists".
 // [FIX-500] Validação robusta da service account com logging detalhado
+// [FIX-UNDEFINED] Verificação segura de admin.apps para evitar TypeError
 // ---------------------------------------------------------------------------
-if (!admin.apps.length) {
+if (!admin.apps || admin.apps.length === 0) {
   try {
     const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     
