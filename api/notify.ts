@@ -8,49 +8,54 @@
 //   [FIX-SEC]        Validação de origem via CORS + verificação de payload.
 //   [FIX-PERF]       firebase-admin inicializado uma única vez (singleton),
 //                    evitando re-inicialização a cada invocação da função.
+//   [FIX-ESM]        Migrado para a API modular do Firebase Admin v12+,
+//                    eliminando o TypeError: Cannot read properties of undefined
+//                    (reading 'cert') causado pelo import * as admin legado.
 // =============================================================================
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
+import { getFirestore } from 'firebase-admin/firestore';
+import type { Message } from 'firebase-admin/messaging';
 
 // ---------------------------------------------------------------------------
 // Inicialização singleton do Firebase Admin
-// [FIX-PERF] A verificação apps.length > 0 é CRÍTICA em Vercel/Serverless:
+// [FIX-PERF] A verificação getApps().length é CRÍTICA em Vercel/Serverless:
 // cada cold start pode tentar re-inicializar, causando "app already exists".
-// [FIX-500] Validação robusta da service account com logging detalhado
-// [FIX-UNDEFINED] Verificação segura de admin.apps para evitar TypeError
+// [FIX-ESM]  Uso exclusivo da API modular (firebase-admin/app) que resolve
+// o TypeError causado pelo import namespace legado em ambientes ESM/Vercel.
 // ---------------------------------------------------------------------------
-if (!admin.apps || admin.apps.length === 0) {
+if (!getApps().length) {
   try {
     const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    
+
     if (!serviceAccountKey) {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não está definida nas variáveis de ambiente');
     }
-    
-    console.log('[Firebase-Init] Validando JSON da service account...');
-    
-    // Validação prévia: verificar se é um JSON válido antes do parse
+
     if (typeof serviceAccountKey !== 'string') {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não é uma string válida');
     }
-    
+
+    console.log('[Firebase-Init] Validando JSON da service account...');
+
     const serviceAccount = JSON.parse(serviceAccountKey);
-    
+
     // Validar campos obrigatórios da service account
     const requiredFields = ['project_id', 'private_key', 'client_email'];
-    const missingFields = requiredFields.filter(field => !serviceAccount[field]);
-    
+    const missingFields = requiredFields.filter((field) => !serviceAccount[field]);
+
     if (missingFields.length > 0) {
       throw new Error(`Service account JSON inválido: campos faltando [${missingFields.join(', ')}]`);
     }
-    
+
     console.log('[Firebase-Init] Service account validada com sucesso, inicializando app...');
-    
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+
+    initializeApp({
+      credential: cert(serviceAccount),
     });
-    
+
     console.log('[Firebase-Init] Firebase Admin inicializado com sucesso');
   } catch (err) {
     const error = err as Error;
@@ -60,14 +65,8 @@ if (!admin.apps || admin.apps.length === 0) {
     console.error('[Firebase-Init] Variável FIREBASE_SERVICE_ACCOUNT_KEY existe?', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
     console.error('[Firebase-Init] Tipo da variável:', typeof process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
     console.error('[Firebase-Init] Primeiros 100 chars da variável:', process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.slice(0, 100));
-    
-    // Não relançar o erro - a função continuará mas falhará gracefulmente
-    // O erro será capturado no handler principal
   }
 }
-
-const messaging = admin.apps && admin.apps.length > 0 ? admin.messaging() : null;
-const firestore = admin.apps && admin.apps.length > 0 ? admin.firestore() : null;
 
 // ---------------------------------------------------------------------------
 // Handler principal
@@ -83,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   // Verificar se Firebase Admin foi inicializado corretamente
-  if (!messaging || !firestore) {
+  if (!getApps().length) {
     console.error('[FCM] Firebase Admin não foi inicializado corretamente');
     return res.status(500).json({ error: 'Firebase Admin não inicializado. Verifique FIREBASE_SERVICE_ACCOUNT_KEY.' });
   }
@@ -97,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Campos "title" e "body" são obrigatórios.' });
   }
 
-  const message: admin.messaging.Message = {
+  const message: Message = {
     token,
     notification: { title, body, ...(icon ? { imageUrl: icon } : {}) },
     ...(data ? { data } : {}),
@@ -107,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   try {
-    const messageId = await messaging.send(message);
+    const messageId = await getMessaging().send(message);
     return res.status(200).json({ success: true, messageId });
   } catch (err: unknown) {
     const fcmError = err as { code?: string; httpErrorCode?: { status?: number } };
@@ -133,12 +132,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isTokenInvalid) {
       console.warn(`[FCM] Token inválido/expirado detectado. Deletando: ${token.slice(0, 20)}...`);
       try {
-        await firestore.collection('fcmTokens').doc(token).delete();
+        await getFirestore().collection('fcmTokens').doc(token).delete();
         console.info('[FCM] Token removido do Firestore (server-side).');
       } catch (deleteErr) {
         console.error('[FCM] Falha ao deletar token expirado:', deleteErr);
       }
-      // Retorna 410 para o cliente saber que deve fazer a limpeza também
       return res.status(410).json({
         error: 'Token FCM expirado ou inválido. Token removido do banco.',
         code: 'TOKEN_REVOKED',
