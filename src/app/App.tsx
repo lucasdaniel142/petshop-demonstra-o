@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../shared/contexts/AuthContext';
 import { Home } from '../features/catalog/Home';
@@ -7,7 +7,6 @@ import { InstallPWA } from '../shared/components/InstallPWA';
 import { LoadingFallback } from '../shared/components/LoadingFallback';
 import { ToastProvider } from '../shared/components/ToastProvider';
 import { ProtectedRoute } from '../features/admin/ProtectedRoute';
-import { requestNotificationToken } from '../shared/lib/notifications';
 
 /**
  * Lazy Loading de Componentes Administrativos
@@ -23,75 +22,6 @@ const OrderManager = lazy(() => import('../features/admin/OrderManager').then(m 
 const SettingsManager = lazy(() => import('../features/admin/SettingsManager').then(m => ({ default: m.SettingsManager })));
 
 export const App: React.FC = () => {
-  // ---------------------------------------------------------------------------
-  // Silent token registration - registra token FCM automaticamente na primeira carga
-  // sem depender de UI de opt-in ou banners
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const registerSilentToken = async () => {
-      try {
-        // Verifica suporte e permissão
-        if (!('Notification' in window)) {
-          console.log('[App] Navegador não suporta notificações');
-          return;
-        }
-        
-        const permission = Notification.permission;
-        console.log('[App] Permissão de notificação atual:', permission);
-        
-        // Se permissão já foi concedida, obtém o token silenciosamente
-        if (permission === 'granted') {
-          console.log('[App] Permissão já concedida, obtendo token FCM silenciosamente...');
-          
-          try {
-            const token = await requestNotificationToken();
-            if (token) {
-              console.log('[App] Token obtido com sucesso:', token.slice(0, 20) + '...');
-              // Salva apenas no localStorage para uso no checkout
-              localStorage.setItem('fcmToken', token);
-              console.log('[App] Token FCM salvo no localStorage');
-              alert('✅ Notificações ativadas com sucesso!');
-            } else {
-              console.warn('[App] requestNotificationToken retornou null');
-              alert('⚠️ Erro ao obter token de notificação');
-            }
-          } catch (tokenError) {
-            console.error('[App] Erro ao obter token FCM:', tokenError);
-            alert('⚠️ Erro ao obter token: ' + (tokenError as Error).message);
-          }
-        } else if (permission === 'default') {
-          // Permissão ainda não foi pedida - solicita silenciosamente
-          console.log('[App] Solicitando permissão de notificação silenciosamente...');
-          
-          try {
-            const token = await requestNotificationToken();
-            if (token) {
-              console.log('[App] Token obtido após permissão:', token.slice(0, 20) + '...');
-              // Salva apenas no localStorage para uso no checkout
-              localStorage.setItem('fcmToken', token);
-              console.log('[App] Token FCM salvo no localStorage');
-              alert('✅ Notificações ativadas com sucesso!');
-            } else {
-              console.log('[App] Permissão negada ou token não obtido');
-              alert('⚠️ Permissão de notificação negada');
-            }
-          } catch (tokenError) {
-            console.error('[App] Erro ao obter token FCM:', tokenError);
-            alert('⚠️ Erro ao obter token: ' + (tokenError as Error).message);
-          }
-        } else {
-          console.log('[App] Permissão negada pelo usuário, não solicitando');
-          alert('⚠️ Permissão de notificação negada');
-        }
-      } catch (error) {
-        console.error('[App] Erro geral ao registrar token FCM:', error);
-        alert('⚠️ Erro ao registrar token: ' + (error as Error).message);
-      }
-    };
-
-    registerSilentToken();
-  }, []);
-
   return (
     <AuthProvider>
       <ToastProvider>

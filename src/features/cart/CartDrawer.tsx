@@ -27,9 +27,9 @@ import {
 import { isStoreOpen, getStoreHoursLabel } from '../../shared/config/businessHours';
 import type { StoreId } from '../../shared/types';
 import { Link } from 'react-router-dom';
-// [FIX-4] Removidos: collection, addDoc (não utilizados — reduz bundle ~2 KB)
 import { serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
+import { SoftNotificationPrompt } from '../../shared/components/SoftNotificationPrompt';
 
 // ---------------------------------------------------------------------------
 // [FIX-3] Leitura segura do threshold de frete grátis por valor
@@ -773,6 +773,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </div>
 
             <div className="flex flex-col gap-2 border-t border-border p-6 shrink-0 bg-white">
+              {/* Soft Prompt — opt-in contextual de notificações push */}
+              <SoftNotificationPrompt />
+
               {/* [FIX-1] Botão bloqueado imediatamente (isSubmitting + disabled) */}
               <button
                 onClick={handleConfirmOrder}

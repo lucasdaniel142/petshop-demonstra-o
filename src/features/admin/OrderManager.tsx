@@ -18,13 +18,45 @@ import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc, updateDo
 import { db, auth } from '../../shared/lib/firebase';
 import type { Order, PaymentMethodType, OrderStatus } from '../../shared/types';
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; whatsappMessage: string }> = {
-  pending: { label: '🔔 Novo Pedido', color: 'text-amber-700', bg: 'bg-amber-100', whatsappMessage: 'Olá! 🔔 Recebemos seu pedido e já estamos começando a prepará-lo. Em breve você receberá atualizações sobre o status.' },
-  preparing: { label: '📦 Em Separação', color: 'text-blue-700', bg: 'bg-blue-100', whatsappMessage: 'Olá! 📦 Seu pedido está sendo separado e preparado com carinho. Em breve sairá para entrega.' },
-  shipped: { label: '🚚 Saiu para Entrega', color: 'text-purple-700', bg: 'bg-purple-100', whatsappMessage: 'Olá! 🚚 Seu pedido saiu para entrega e está a caminho. Fique atento para recebê-lo!' },
-  delivered: { label: '✅ Entregue', color: 'text-green-700', bg: 'bg-green-100', whatsappMessage: 'Olá! ✅ Seu pedido foi entregue com sucesso. Agradecemos a preferência!' },
-  cancelled: { label: '❌ Cancelado', color: 'text-red-700', bg: 'bg-red-100', whatsappMessage: 'Olá! ❌ Informamos que seu pedido foi cancelado. Entre em contato conosco para mais informações.' },
+// Emojis definidos via Unicode Escape Sequences para evitar corrupção de
+// surrogate pairs em ambientes Windows/VS Code com encoding inconsistente.
+const E = {
+  BELL:   '\u{1F514}', // 🔔
+  BOX:    '\u{1F4E6}', // 📦
+  TRUCK:  '\u{1F69A}', // 🚚
+  CHECK:  '\u{2705}',  // ✅
+  CROSS:  '\u{274C}',  // ❌
 };
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; whatsappMessage: string }> = {
+  pending:   { label: `${E.BELL} Novo Pedido`,       color: 'text-amber-700',  bg: 'bg-amber-100',  whatsappMessage: `Ol\u00E1! ${E.BELL} Recebemos seu pedido e j\u00E1 estamos come\u00E7ando a prepar\u00E1-lo. Em breve voc\u00EA receber\u00E1 atualiza\u00E7\u00F5es sobre o status.` },
+  preparing: { label: `${E.BOX} Em Separa\u00E7\u00E3o`, color: 'text-blue-700',   bg: 'bg-blue-100',   whatsappMessage: `Ol\u00E1! ${E.BOX} Seu pedido est\u00E1 sendo separado e preparado com carinho. Em breve sair\u00E1 para entrega.` },
+  shipped:   { label: `${E.TRUCK} Saiu para Entrega`, color: 'text-purple-700', bg: 'bg-purple-100', whatsappMessage: `Ol\u00E1! ${E.TRUCK} Seu pedido saiu para entrega e est\u00E1 a caminho. Fique atento para receb\u00EA-lo!` },
+  delivered: { label: `${E.CHECK} Entregue`,          color: 'text-green-700',  bg: 'bg-green-100',  whatsappMessage: `Ol\u00E1! ${E.CHECK} Seu pedido foi entregue com sucesso. Agradecemos a prefer\u00EAncia!` },
+  cancelled: { label: `${E.CROSS} Cancelado`,         color: 'text-red-700',    bg: 'bg-red-100',    whatsappMessage: `Ol\u00E1! ${E.CROSS} Informamos que seu pedido foi cancelado. Entre em contato conosco para mais informa\u00E7\u00F5es.` },
+};
+
+/**
+ * Monta a URL do WhatsApp para notificação de status do pedido.
+ *
+ * Garante que:
+ * 1. A mensagem inteira passa por encodeURIComponent antes de ir para a URL.
+ * 2. O slice do ID do pedido usa Array.from para respeitar surrogate pairs
+ *    (emojis de 2 code units) e nunca cortar no meio de um caractere.
+ */
+function buildWhatsAppStatusUrl(
+  phone: string,
+  orderId: string,
+  customerName: string,
+  statusLabel: string,
+  statusMessage: string
+): string {
+  // Array.from itera por code points (não code units), evitando corte de surrogate pairs
+  const shortId = Array.from(orderId).slice(0, 8).join('');
+  const formattedPhone = phone.replace(/\D/g, '');
+  const text = `Ol\u00E1 *${customerName}*! Seu pedido *#${shortId}* - ${statusLabel}.\n\n${statusMessage}`;
+  return `https://wa.me/55${formattedPhone}?text=${encodeURIComponent(text)}`;
+}
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   pix_presencial: '📱 Pix na Entrega',
@@ -178,13 +210,17 @@ const OrderCard: React.FC<{
           <button
             onClick={() => {
               if (!order.phone) {
-                alert('Este pedido não possui número de telefone cadastrado.');
+                alert('Este pedido n\u00E3o possui n\u00FAmero de telefone cadastrado.');
                 return;
               }
               const statusConfig = STATUS_CONFIG[order.paymentStatus];
-              const statusMsg = `Olá *${order.customerName}*! Seu pedido *#${order.id.slice(0, 8)}* - ${statusConfig?.label || order.paymentStatus}.\n\n${statusConfig?.whatsappMessage || ''}`;
-              const formattedPhone = order.phone.replace(/\D/g, '');
-              const whatsappUrl = `https://wa.me/55${formattedPhone}?text=${encodeURIComponent(statusMsg)}`;
+              const whatsappUrl = buildWhatsAppStatusUrl(
+                order.phone,
+                order.id,
+                order.customerName,
+                statusConfig?.label || order.paymentStatus,
+                statusConfig?.whatsappMessage || ''
+              );
               window.open(whatsappUrl, '_blank');
             }}
             className="p-1.5 hover:bg-green-100 rounded-lg transition-colors"

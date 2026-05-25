@@ -1,7 +1,15 @@
+// =============================================================================
+// usePushNotifications.ts
+// Hook para gerenciar o ciclo de vida das notificações push (Soft Prompt).
+//
+// NÃO solicita permissão automaticamente. A permissão só é pedida quando
+// o usuário clica explicitamente em um botão de opt-in.
+// =============================================================================
+
 import { useState, useEffect } from 'react';
-import { getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db, getFirebaseMessaging } from '../lib/firebase';
+import { onMessage } from 'firebase/messaging';
+import { getFirebaseMessaging } from '../lib/firebase';
+import { requestPermission, getNotificationToken } from '../lib/notifications';
 
 interface ToastPayload {
   title: string;
@@ -16,81 +24,63 @@ function emitAppToast(toast: ToastPayload) {
 }
 
 export function usePushNotifications() {
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null
+  );
   const [permission, setPermission] = useState<NotificationPermission>('default');
 
+  // Lê o estado atual da permissão sem pedir nada
   useEffect(() => {
     if ('Notification' in window) {
       setPermission(Notification.permission);
     }
-
-    const messaging = getFirebaseMessaging();
-    if (messaging) {
-      const unsubscribe = onMessage(messaging, (payload) => {
-        if (payload.notification) {
-          console.log('[FCM] Nova mensagem foreground:', payload.notification);
-
-          emitAppToast({
-            title: payload.notification.title || 'Nova atualização',
-            description: payload.notification.body || undefined,
-            type: 'info',
-            duration: 6000,
-          });
-
-          if (Notification.permission === 'granted') {
-            new Notification(payload.notification.title || 'Nova atualização', {
-              body: payload.notification.body,
-              icon: '/logo.png',
-            });
-          }
-        }
-      });
-      return () => unsubscribe();
-    }
   }, []);
 
-  const requestPermissionAndGetToken = async () => {
-    if (!('Notification' in window)) {
-      console.warn('Este navegador não suporta notificações web.');
-      return null;
-    }
+  // Escuta mensagens em foreground e exibe toast
+  useEffect(() => {
+    const messaging = getFirebaseMessaging();
+    if (!messaging) return;
 
-    try {
-      const p = await Notification.requestPermission();
-      setPermission(p);
-
-      if (p === 'granted') {
-        const messaging = getFirebaseMessaging();
-        if (!messaging) throw new Error('Firebase Messaging não inicializado');
-
-        const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-        if (!vapidKey) {
-          console.error('VITE_FIREBASE_VAPID_KEY não configurada no .env.local');
-          return null;
-        }
-
-        const currentToken = await getToken(messaging, { vapidKey });
-        if (currentToken) {
-          setToken(currentToken);
-          await setDoc(doc(db, 'fcmTokens', currentToken), {
-            token: currentToken,
-            updatedAt: serverTimestamp(),
-            platform: navigator.userAgent,
-          });
-          return currentToken;
-        } else {
-          console.warn('Nenhum token de registro disponível. Permissão negada?');
-          return null;
-        }
-      } else {
-        console.warn('Permissão para notificações negada pelo usuário.');
-        return null;
+    const unsubscribe = onMessage(messaging, (payload) => {
+      if (payload.notification) {
+        console.log('[FCM] Mensagem foreground recebida:', payload.notification);
+        emitAppToast({
+          title: payload.notification.title || 'Nova atualização',
+          description: payload.notification.body || undefined,
+          type: 'info',
+          duration: 6000,
+        });
       }
-    } catch (error) {
-      console.error('Erro ao pedir permissão ou pegar token:', error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // requestPermissionAndGetToken
+  // Deve ser chamado APENAS em resposta a um gesto explícito do usuário.
+  // Retorna o token se bem-sucedido, null caso contrário.
+  // ---------------------------------------------------------------------------
+  const requestPermissionAndGetToken = async (): Promise<string | null> => {
+    if (!('Notification' in window)) {
+      console.warn('[FCM] Este navegador não suporta notificações web.');
       return null;
     }
+
+    const p = await requestPermission();
+    setPermission(p);
+
+    if (p !== 'granted') {
+      console.warn('[FCM] Permissão não concedida:', p);
+      return null;
+    }
+
+    const currentToken = await getNotificationToken();
+    if (currentToken) {
+      setToken(currentToken);
+    }
+    return currentToken;
   };
 
-  return { token, permission, requestPermissionAndGetToken };
+  return { token, permission, setPermission, requestPermissionAndGetToken };
 }
