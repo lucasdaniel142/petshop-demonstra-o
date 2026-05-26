@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { onMessage } from 'firebase/messaging';
 import { getFirebaseMessaging } from '../lib/firebase';
 import { requestPermission, getNotificationToken } from '../lib/notifications';
+import { logger } from '../utils/logger';
 
 interface ToastPayload {
   title: string;
@@ -43,7 +44,7 @@ export function usePushNotifications() {
 
     const unsubscribe = onMessage(messaging, (payload) => {
       if (payload.notification) {
-        console.log('[FCM] Mensagem foreground recebida:', payload.notification);
+        logger.debug('[FCM] Mensagem foreground recebida:', payload.notification);
         emitAppToast({
           title: payload.notification.title || 'Nova atualização',
           description: payload.notification.body || undefined,

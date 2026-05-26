@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Check, Tag, X, Bell, Truck } from 'lucide-react';
+import { Search, Check, Bell, Truck } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../shared/lib/firebase';
 import { getPlaceholderImage } from '../../shared/utils/placeholderImage';
@@ -40,6 +40,8 @@ export const PriceManager: React.FC = () => {
   const [isNotifying, setIsNotifying] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
   const timeoutRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // [HP-06 FIX] Debounce timers para evitar writes desnecessários no Firestore
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -73,7 +75,9 @@ export const PriceManager: React.FC = () => {
 
     return () => {
       unsubscribe();
+      // [HP-06 FIX] Limpa todos os timers ao desmontar
       Object.values(timeoutRefs.current).forEach(clearTimeout);
+      Object.values(debounceTimers.current).forEach(clearTimeout);
     };
   }, []);
 
@@ -267,7 +271,13 @@ export const PriceManager: React.FC = () => {
                               onChange={(e) => setPriceInputs((prev) => ({ ...prev, [product.id]: e.target.value }))}
                               onBlur={(e) => {
                                 const newPrice = parseFloat(e.target.value.replace(',', '.'));
-                                if (!isNaN(newPrice) && newPrice !== price && newPrice >= 0) handleUpdateField(product.id, 'valor', newPrice);
+                                if (!isNaN(newPrice) && newPrice !== price && newPrice >= 0) {
+                                  // [HP-06 FIX] Debounce de 500ms para evitar writes múltiplos
+                                  clearTimeout(debounceTimers.current[product.id]);
+                                  debounceTimers.current[product.id] = setTimeout(() => {
+                                    handleUpdateField(product.id, 'valor', newPrice);
+                                  }, 500);
+                                }
                               }}
                               className={`min-w-[100px] w-full bg-white border rounded-[6px] px-3 py-2 text-[14px] font-[600] outline-none transition-all ${status === 'success' ? 'border-green-500' : status === 'error' ? 'border-red-400' : 'border-border focus:border-primary'}`}
                             />

@@ -38,6 +38,7 @@ if (!getApps().length) {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY não é uma string válida');
     }
 
+    // [LOG INTENCIONAL] Logs de inicialização são críticos para debug no Vercel
     console.log('[Firebase-Init] Validando JSON da service account...');
 
     const serviceAccount = JSON.parse(serviceAccountKey);

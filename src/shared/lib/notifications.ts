@@ -17,6 +17,7 @@
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { doc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { app, db } from './firebase';
+import { loggers } from '../utils/logger';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string;
 
@@ -30,7 +31,7 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string;
 // ---------------------------------------------------------------------------
 export async function requestPermission(): Promise<NotificationPermission> {
   if (!('Notification' in window)) {
-    console.info('[FCM] Notificações não suportadas neste navegador.');
+    loggers.fcm.info('Notificações não suportadas neste navegador.');
     return 'denied';
   }
   return Notification.requestPermission();
@@ -46,12 +47,12 @@ export async function getNotificationToken(): Promise<string | null> {
   try {
     const supported = await isSupported();
     if (!supported) {
-      console.info('[FCM] Firebase Messaging não suportado neste navegador.');
+      loggers.fcm.info('Firebase Messaging não suportado neste navegador.');
       return null;
     }
 
     if (Notification.permission !== 'granted') {
-      console.warn('[FCM] getNotificationToken chamado sem permissão concedida.');
+      loggers.fcm.warn('getNotificationToken chamado sem permissão concedida.');
       return null;
     }
 
@@ -59,7 +60,7 @@ export async function getNotificationToken(): Promise<string | null> {
     const token = await getToken(messaging, { vapidKey: VAPID_KEY });
 
     if (!token) {
-      console.warn('[FCM] Token vazio retornado pelo SDK.');
+      loggers.fcm.warn('Token vazio retornado pelo SDK.');
       return null;
     }
 
@@ -73,10 +74,10 @@ export async function getNotificationToken(): Promise<string | null> {
     // Persiste no localStorage para uso no checkout (CartDrawer)
     localStorage.setItem('fcmToken', token);
 
-    console.info('[FCM] Token registrado com sucesso:', token.slice(0, 20) + '...');
+    loggers.fcm.info('Token registrado com sucesso:', token.slice(0, 20) + '...');
     return token;
   } catch (err) {
-    console.error('[FCM] Erro ao obter token de notificação:', err);
+    loggers.fcm.error('Erro ao obter token de notificação:', err);
     return null;
   }
 }
@@ -131,13 +132,14 @@ export async function sendPushNotification(
       });
 
       if (response.status === 410) {
-        console.warn(`[FCM] Token expirado (410). Deletando do Firestore: ${fcmToken.slice(0, 20)}...`);
+        loggers.fcm.warn(`Token expirado (410). Deletando do Firestore: ${fcmToken.slice(0, 20)}...`);
         try {
           await deleteDoc(doc(db, 'fcmTokens', fcmToken));
+          // [HP-04 FIX] Remove também do localStorage para evitar loop de tentativas
           localStorage.removeItem('fcmToken');
-          console.info('[FCM] Token removido do Firestore e localStorage.');
+          loggers.fcm.info('Token removido do Firestore e localStorage.');
         } catch (deleteErr) {
-          console.error('[FCM] Erro ao deletar token expirado:', deleteErr);
+          loggers.fcm.error('Erro ao deletar token expirado:', deleteErr);
         }
         return { success: false, tokenRevoked: true, error: 'Token FCM expirado (410)' };
       }
@@ -145,7 +147,7 @@ export async function sendPushNotification(
       if (response.status >= 400 && response.status < 500) {
         const body = await response.json().catch(() => ({}));
         const msg = body?.error ?? `Erro HTTP ${response.status}`;
-        console.error('[FCM] Erro fatal ao enviar notificação:', msg);
+        loggers.fcm.error('Erro fatal ao enviar notificação:', msg);
         return { success: false, error: msg };
       }
 
@@ -161,7 +163,7 @@ export async function sendPushNotification(
     } catch (networkErr) {
       if (attempt > maxRetries) {
         const msg = networkErr instanceof Error ? networkErr.message : 'Erro de rede';
-        console.error('[FCM] Erro de rede após todas as tentativas:', msg);
+        loggers.fcm.error('Erro de rede após todas as tentativas:', msg);
         return { success: false, error: msg };
       }
       await sleep(500 * attempt);

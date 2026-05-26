@@ -1,21 +1,19 @@
 // =============================================================================
-// delivery.ts — REFATORADO
+// delivery.ts — Configuração de entrega (Frontend)
 // =============================================================================
-// CORREÇÕES APLICADAS:
-//   [FIX-FRETE-1] calculateDeliveryFee: agora recebe cartTotal como parâmetro
-//                 e aplica a regra de frete grátis por valor >= R$100,00.
-//   [FIX-FRETE-2] Operador corrigido: >= (maior OU IGUAL) garante que R$100,00
-//                 exatos também resultem em frete grátis.
-//   [FIX-FRETE-3] parseFloat seguro em todas as env vars (fallback numérico).
-//   [FIX-FRETE-4] Math.round para eliminar imprecisão de ponto flutuante.
-// =============================================================================
+// [MP-01 FIX] Agora usa a função centralizada de deliveryCalculator.ts
+
+import { 
+  calculateDeliveryFee as calculateDeliveryFeeShared,
+  type DeliveryConfig,
+  type DeliveryCalculationResult
+} from '../utils/deliveryCalculator';
 
 export const DELIVERY_BASE_FEE       = parseFloat(import.meta.env.VITE_DELIVERY_BASE_FEE       ?? '5.00');
 export const DELIVERY_BASE_RADIUS_KM = parseFloat(import.meta.env.VITE_DELIVERY_BASE_RADIUS_KM ?? '3');
 export const DELIVERY_PER_KM_FEE     = parseFloat(import.meta.env.VITE_DELIVERY_PER_KM_FEE     ?? '1.50');
 export const DELIVERY_MAX_RADIUS_KM  = parseFloat(import.meta.env.VITE_DELIVERY_MAX_RADIUS_KM  ?? '15');
 
-// [FIX-FRETE-2] === 'true' trata corretamente string 'false' como boolean false
 // Variáveis mutáveis para atualização dinâmica via SettingsManager
 let freeShippingByValueEnabled = import.meta.env.VITE_FREE_SHIPPING_MIN_VALUE_ENABLED === 'true';
 let freeShippingMinValue = parseFloat(
@@ -48,52 +46,31 @@ export interface DeliveryResult {
 }
 
 /**
- * Calcula a taxa de entrega.
- *
- * [FIX-FRETE-1] cartTotal agora é parâmetro explícito — antes jamais era
- *               verificado contra FREE_SHIPPING_MIN_VALUE.
- * [FIX-FRETE-2] >= garante limiar inclusivo (R$ 100,00 exatos = frete grátis).
- * [FIX-FRETE-4] Math.round(n * 100) / 100 elimina imprecisão de ponto flutuante:
- *               ex: 33.33 + 66.67 = 99.99999... → round → 100.00 → frete grátis ✓
+ * Calcula a taxa de entrega usando a função centralizada.
+ * 
+ * @param distanceKm - Distância em quilômetros
+ * @param hasFreeShippingByItem - Se algum item tem frete grátis
+ * @param cartTotal - Valor total do carrinho (padrão: 0)
+ * @returns Resultado do cálculo de entrega
  */
 export function calculateDeliveryFee(
   distanceKm: number,
-  hasFreeShippingByItem: boolean,
+  hasFreeShippingByItem: boolean = false,
   cartTotal: number = 0
 ): DeliveryResult {
-
-  if (distanceKm > DELIVERY_MAX_RADIUS_KM) {
-    return {
-      fee: 0,
-      distanceKm: parseFloat(distanceKm.toFixed(1)),
-      description: `Fora da área de entrega (${distanceKm.toFixed(1)} km)`,
-      isInRange: false,
-    };
-  }
-
-  const roundedCartTotal    = Math.round(cartTotal * 100) / 100;
-  const hasFreeShippingByValue =
-    FREE_SHIPPING_BY_VALUE_ENABLED && roundedCartTotal >= FREE_SHIPPING_MIN_VALUE;
-  const hasFreeShipping     = hasFreeShippingByItem || hasFreeShippingByValue;
-
-  if (hasFreeShipping) {
-    return {
-      fee: 0,
-      distanceKm: parseFloat(distanceKm.toFixed(1)),
-      description: hasFreeShippingByValue
-        ? `Frete grátis (pedido ≥ R$ ${FREE_SHIPPING_MIN_VALUE.toFixed(2).replace('.', ',')})`
-        : 'Frete grátis (produto incluído)',
-      isInRange: true,
-    };
-  }
-
-  const extraKm = Math.max(0, distanceKm - DELIVERY_BASE_RADIUS_KM);
-  const fee     = parseFloat((DELIVERY_BASE_FEE + extraKm * DELIVERY_PER_KM_FEE).toFixed(2));
-
-  return {
-    fee,
-    distanceKm: parseFloat(distanceKm.toFixed(1)),
-    description: `Entrega a ${distanceKm.toFixed(1)} km`,
-    isInRange: true,
+  const config: DeliveryConfig = {
+    baseFee: DELIVERY_BASE_FEE,
+    baseRadiusKm: DELIVERY_BASE_RADIUS_KM,
+    perKmFee: DELIVERY_PER_KM_FEE,
+    maxRadiusKm: DELIVERY_MAX_RADIUS_KM,
+    freeShippingMinValue: freeShippingMinValue,
+    freeShippingByValueEnabled: freeShippingByValueEnabled,
   };
+
+  return calculateDeliveryFeeShared(
+    distanceKm,
+    hasFreeShippingByItem,
+    cartTotal,
+    config
+  );
 }

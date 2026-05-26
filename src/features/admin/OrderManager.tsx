@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc, updateDoc, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../../shared/lib/firebase';
-import type { Order, PaymentMethodType, OrderStatus } from '../../shared/types';
+import type { Order } from '../../shared/types';
+import { formatCurrency, getItemPrice } from '../../shared/utils/currency';
+import { useNotificationSound } from '../../shared/hooks/useNotificationSound';
 
 // Emojis definidos via Unicode Escape Sequences para evitar corrupção de
 // surrogate pairs em ambientes Windows/VS Code com encoding inconsistente.
@@ -73,37 +75,6 @@ const FILTER_OPTIONS = [
   { id: 'delivered', label: 'Entregues' },
 ];
 
-let audioContext: AudioContext | null = null;
-
-function playNotificationBeep() {
-  try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    
-    // Resume se estiver suspenso (política do Chrome)
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-    gain.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
-  } catch (err) {
-    console.error('Audio error:', err);
-  }
-}
-
 function escapeHtml(raw: string): string {
   return raw
     .replace(/&/g, '&amp;')
@@ -111,33 +82,6 @@ function escapeHtml(raw: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function formatCurrency(value: any): string {
-  if (value === null || value === undefined) return 'R$ 0,00';
-  let num = 0;
-  if (typeof value === 'object') {
-    if ('valor' in value) {
-      num = typeof value.valor === 'number' ? value.valor : parseFloat(value.valor) || 0;
-    }
-  } else {
-    num = typeof value === 'number' ? value : parseFloat(value) || 0;
-  }
-  if (isNaN(num)) return 'R$ 0,00';
-  return `R$ ${num.toFixed(2).replace('.', ',')}`;
-}
-
-function getItemPrice(item: any): number {
-  if (!item || item.price === null || item.price === undefined) return 0;
-  let price = 0;
-  if (typeof item.price === 'object') {
-    if ('valor' in item.price) {
-      price = typeof item.price.valor === 'number' ? item.price.valor : parseFloat(item.price.valor) || 0;
-    }
-  } else {
-    price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
-  }
-  return isNaN(price) ? 0 : price;
 }
 
 function formatDate(timestamp: any): string {
@@ -197,7 +141,7 @@ const OrderCard: React.FC<{
               if (window.confirm('Tem certeza que deseja EXCLUIR permanentemente este pedido?')) {
                 try {
                   await deleteDoc(doc(db, 'pedidos', order.id));
-                } catch (err) {
+                } catch {
                   alert('Erro ao excluir pedido.');
                 }
               }
@@ -286,6 +230,9 @@ export const OrderManager: React.FC = () => {
 
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
+  
+  // [BP-02 FIX] Usa hook ao invés de variável global
+  const { playBeep } = useNotificationSound();
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -300,23 +247,36 @@ export const OrderManager: React.FC = () => {
       console.log('[OrderManager] Atualizando pedido:', orderId, 'para status:', newStatus);
       console.log('[OrderManager] Token FCM do pedido:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
       
-      // Se o pedido não tem token, tenta buscar pelo telefone do cliente
+      // [HP-05 FIX] Se o pedido não tem token, tenta buscar pelo telefone
+      // IMPORTANTE: Esta query requer índice no Firestore (fcmTokens: phone ASC, updatedAt DESC)
+      // Crie o índice em: https://console.firebase.google.com/project/_/firestore/indexes
       if (!fcmToken && order?.phone) {
         console.log('[OrderManager] Pedido sem token, buscando token pelo telefone:', order.phone);
         try {
+          // Busca o token mais recente para este telefone (ordenado por updatedAt DESC)
           const fcmTokensSnapshot = await getDocs(
-            query(collection(db, 'fcmTokens'), where('phone', '==', order.phone))
+            query(
+              collection(db, 'fcmTokens'), 
+              where('phone', '==', order.phone),
+              orderBy('updatedAt', 'desc'),
+              limit(1)
+            )
           );
           if (!fcmTokensSnapshot.empty) {
-            // Usa o token mais recente para este telefone
             const tokenDoc = fcmTokensSnapshot.docs[0];
             fcmToken = tokenDoc.id;
             console.log('[OrderManager] Token encontrado pelo telefone:', fcmToken.slice(0, 20) + '...');
           } else {
             console.log('[OrderManager] Nenhum token encontrado para o telefone:', order.phone);
           }
-        } catch (e) {
-          console.warn('[OrderManager] Erro ao buscar tokens FCM:', e);
+        } catch (e: any) {
+          // Se o índice não existir, o Firestore retorna erro específico
+          if (e.code === 'failed-precondition') {
+            console.warn('[OrderManager] ÍNDICE FALTANDO: Crie um índice composto em fcmTokens (phone ASC, updatedAt DESC)');
+            console.warn('[OrderManager] Link:', e.message.match(/https:\/\/[^\s]+/)?.[0]);
+          } else {
+            console.warn('[OrderManager] Erro ao buscar tokens FCM:', e);
+          }
         }
       }
       
@@ -446,7 +406,7 @@ export const OrderManager: React.FC = () => {
       if (!isFirstLoad.current && soundEnabled) {
         for (const order of loadedOrders) {
           if (order.paymentStatus === 'pending' && !knownOrderIds.current.has(order.id)) {
-            playNotificationBeep();
+            playBeep(); // [BP-02 FIX] Usa função do hook
             break;
           }
         }
@@ -457,7 +417,7 @@ export const OrderManager: React.FC = () => {
       setOrders(loadedOrders);
       setIsLoading(false);
       setError(null);
-    }, (err) => {
+    }, () => {
       setError('Não foi possível carregar os pedidos. Verifique suas permissões.');
       setIsLoading(false);
     });
@@ -493,7 +453,7 @@ export const OrderManager: React.FC = () => {
             <input type="text" placeholder="Buscar pedido..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full sm:w-[220px] bg-[#F0F2F2] border border-transparent rounded-lg pl-9 pr-4 py-2.5 text-[13px] outline-none focus:border-primary focus:bg-white transition-colors" />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted opacity-50" size={16} />
           </div>
-          <button onClick={() => { setSoundEnabled(!soundEnabled); if (!soundEnabled) playNotificationBeep(); }} className={`p-2.5 rounded-lg border transition-colors ${soundEnabled ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-100 border-transparent text-muted'}`}>
+          <button onClick={() => { setSoundEnabled(!soundEnabled); if (!soundEnabled) playBeep(); }} className={`p-2.5 rounded-lg border transition-colors ${soundEnabled ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-100 border-transparent text-muted'}`}>
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
         </div>

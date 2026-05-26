@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, FileSpreadsheet, Send } from 'lucide-react';
+import { Plus, Edit2, Trash2, FileSpreadsheet } from 'lucide-react';
 import { BulkImportModal } from './components/BulkImportModal';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
@@ -8,6 +8,7 @@ import type { ManagedProduct, FeedbackState, StorePrice, StoreId } from '../../s
 import { DEFAULT_STORE_PRICE } from '../../shared/types';
 import { PRODUCT_CATEGORIES, STORE_IDS, ADMIN_STORES } from '../../shared/utils/constants';
 import { auth } from '../../shared/lib/firebase';
+import { logger } from '../../shared/utils/logger';
 
 const IMGBB_UPLOAD_URL = `https://api.imgbb.com/1/upload?key=${import.meta.env.VITE_IMGBB_API_KEY}`;
 
@@ -183,6 +184,22 @@ export const ProductManager: React.FC = () => {
 
   const sendPromoNotificationForProduct = async (productName: string, storeId: StoreId) => {
     try {
+      // [HP-07 FIX] Rate limiting: verifica se já enviou notificação recentemente
+      const lastNotificationKey = `lastPromoNotification_${storeId}`;
+      const lastNotificationTime = localStorage.getItem(lastNotificationKey);
+      const now = Date.now();
+      const SIX_HOURS = 6 * 60 * 60 * 1000; // 6 horas em ms
+
+      if (lastNotificationTime) {
+        const timeSinceLastNotification = now - parseInt(lastNotificationTime, 10);
+        if (timeSinceLastNotification < SIX_HOURS) {
+          const remainingMinutes = Math.ceil((SIX_HOURS - timeSinceLastNotification) / 60000);
+          logger.info(`[ProductManager] Rate limit ativo. Próxima notificação em ${remainingMinutes} minutos.`);
+          showFeedback('error', `Aguarde ${remainingMinutes} minutos antes de enviar outra notificação de oferta.`);
+          return;
+        }
+      }
+
       // Buscar configurações de notificação de promoção
       const settingsDoc = await getDoc(doc(db, 'settings', 'delivery'));
       const settings = settingsDoc.data();
@@ -198,7 +215,7 @@ export const ProductManager: React.FC = () => {
       }
 
       // Chamar API de notificação
-      await fetch('/api/notify-offers', {
+      const response = await fetch('/api/notify-offers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -207,7 +224,15 @@ export const ProductManager: React.FC = () => {
         body: JSON.stringify({ title, body, link: '/' })
       });
 
-      showFeedback('success', `Notificação de promoção enviada para ${productName}`);
+      if (response.ok) {
+        const data = await response.json();
+        // [HP-07 FIX] Salva timestamp da última notificação
+        localStorage.setItem(lastNotificationKey, now.toString());
+        showFeedback('success', `Notificação enviada para ${data.sent || 0} dispositivos!`);
+      } else {
+        const errorData = await response.json();
+        showFeedback('error', errorData.error || 'Erro ao enviar notificação');
+      }
     } catch (error) {
       console.error('Erro ao enviar notificação de promoção:', error);
       // Não mostrar erro ao usuário pois o produto já foi salvo

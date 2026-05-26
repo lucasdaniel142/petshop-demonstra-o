@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { Product, StorePrice } from '../../shared/types';
 import { useCartStore } from '../../shared/store/useCartStore';
 import { DEFAULT_PLACEHOLDER_IMAGE } from '../../shared/utils/placeholderImage';
+import { formatCurrency } from '../../shared/utils/currency';
 
 interface ProductCardProps {
   product: Product;
@@ -76,7 +77,7 @@ export const ProductCard = React.memo(function ProductCard({
           {hasPrice ? (
             <>
               <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-[700] text-text">
-                R$ {(product.price || 0).toFixed(2).replace('.', ',')}
+                {formatCurrency(product.price || 0)}
               </span>
               <span className="text-[10px] sm:text-[11px] text-muted font-[400]">/ {product.unit}</span>
             </>
@@ -123,5 +124,20 @@ export const ProductCard = React.memo(function ProductCard({
         </div>
       </div>
     </div>
+  );
+}, (prevProps, nextProps) => {
+  // [MP-05 FIX] Comparação customizada para evitar re-renders desnecessários
+  // Só re-renderiza se alguma dessas propriedades mudar
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.price === nextProps.product.price &&
+    prevProps.product.name === nextProps.product.name &&
+    prevProps.product.imageUrl === nextProps.product.imageUrl &&
+    prevProps.storePrice?.valor === nextProps.storePrice?.valor &&
+    prevProps.storePrice?.emOferta === nextProps.storePrice?.emOferta &&
+    prevProps.storePrice?.esgotado === nextProps.storePrice?.esgotado &&
+    prevProps.storeId === nextProps.storeId &&
+    prevProps.imageLoading === nextProps.imageLoading &&
+    prevProps.imageFetchPriority === nextProps.imageFetchPriority
   );
 });

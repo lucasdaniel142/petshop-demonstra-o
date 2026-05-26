@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, Loader2, AlertCircle } from 'lucide-react';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../shared/lib/firebase';
 import { updateDeliverySettings } from '../../shared/config/delivery';
 import { useAuth } from '../../shared/contexts/AuthContext';
@@ -29,10 +29,11 @@ export const SettingsManager: React.FC = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    // Só carrega configurações se o usuário for admin
+    // [HP-01 FIX] Retorna ANTES de registrar o listener se não for admin
+    // Isso evita vazamento de memória quando isAdmin muda de true → false
     if (!isAdmin) {
       setLoading(false);
-      return;
+      return; // ← Cleanup não é necessário pois listener não foi criado
     }
 
     const settingsDocRef = doc(db, 'settings', 'delivery');
@@ -64,6 +65,7 @@ export const SettingsManager: React.FC = () => {
       }
     );
 
+    // Cleanup sempre executado quando isAdmin muda ou componente desmonta
     return () => unsubscribe();
   }, [isAdmin]);
 

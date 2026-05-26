@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { X, Upload, FileSpreadsheet, ImagePlus, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { X, FileSpreadsheet, ImagePlus, CheckCircle2, Loader2 } from 'lucide-react';
 import { collection, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../../shared/lib/firebase';
 import { parseCSV, toFirestorePayload, normalizeName, MAX_CSV_SIZE_BYTES, type ParseResult } from '../../../shared/utils/csvParser';

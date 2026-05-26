@@ -12,7 +12,12 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "validate:env": "node scripts/validate-env.mjs",
+    "validate:env:vercel": "node scripts/validate-env.mjs --vercel",
+    "monitor": "node scripts/monitor-deploy.mjs",
+    "monitor:continuous": "node scripts/monitor-deploy.mjs --continuous",
+    "predeploy": "npm run lint && npm run test && npm run validate:env"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateDeliveryFee, DELIVERY_BASE_FEE, DELIVERY_BASE_RADIUS_KM, DELIVERY_MAX_RADIUS_KM } from './delivery';
+import { calculateDeliveryFee, DELIVERY_BASE_FEE, DELIVERY_MAX_RADIUS_KM } from './delivery';
 
 describe('calculateDeliveryFee', () => {
   it('returns fixed fee for distances within base radius', () => {
@@ -26,6 +26,6 @@ describe('calculateDeliveryFee', () => {
     const result = calculateDeliveryFee(10, true);
     expect(result.isInRange).toBe(true);
     expect(result.fee).toBe(0);
-    expect(result.description).toContain('Frete Grátis');
+    expect(result.description).toContain('Frete grátis');
   });
 });

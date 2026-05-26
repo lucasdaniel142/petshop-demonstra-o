@@ -1,4 +1,5 @@
 import type { CartItem } from '../types';
+import { formatCurrency } from './currency';
 
 export const STORE_WHATSAPP_NUMBERS: Record<string, string> = {
   benedito_bentes: import.meta.env.VITE_WHATSAPP_BENEDITO_BENTES || '5582987187113',
@@ -37,7 +38,7 @@ export function generateWhatsAppLink(
   isFallback?: boolean
 ): string {
   const itemsText = items
-    .map(item => `• ${item.quantity}x ${item.name} (R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')})`)
+    .map(item => `• ${item.quantity}x ${item.name} (${formatCurrency(item.price * item.quantity)})`)
     .join('\n');
 
   const deliveryWarning = isFallback ? '\n⚠️ *API INDISPONÍVEL: Confirmar distância!*' : '';
@@ -52,9 +53,9 @@ ${EMOJI.PIN} *Endereço:* ${address}
 ${EMOJI.CART} *Itens:*
 ${itemsText}
 
-${EMOJI.MONEY} *Subtotal:* R$ ${total.toFixed(2).replace('.', ',')}
-${EMOJI.BIKE} *Taxa de Entrega:* R$ ${deliveryFee.toFixed(2).replace('.', ',')}${deliveryWarning}
-${EMOJI.CHECK} *TOTAL: R$ ${(total + deliveryFee).toFixed(2).replace('.', ',')}*
+${EMOJI.MONEY} *Subtotal:* ${formatCurrency(total)}
+${EMOJI.BIKE} *Taxa de Entrega:* ${formatCurrency(deliveryFee)}${deliveryWarning}
+${EMOJI.CHECK} *TOTAL: ${formatCurrency(total + deliveryFee)}*
 
 ${EMOJI.CARD} *Pagamento:* ${paymentMethod}${changeFor ? `\n${EMOJI.CASH} *Troco para:* R$ ${changeFor}` : ''}
 

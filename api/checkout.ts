@@ -1,12 +1,24 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminDb } from './utils/firebaseAdmin.js';
+import { 
+  calculateDeliveryFee as calculateDeliveryFeeShared,
+  type DeliveryConfig
+} from '../src/shared/utils/deliveryCalculator.js';
 
 // Configurações de entrega duplicadas para o backend (Segurança: Single Source of Truth em produção viria de um DB de config)
 const DELIVERY_BASE_FEE = parseFloat(process.env.VITE_DELIVERY_BASE_FEE || '5.00');
 const DELIVERY_BASE_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_BASE_RADIUS_KM || '3');
 const DELIVERY_PER_KM_FEE = parseFloat(process.env.VITE_DELIVERY_PER_KM_FEE || '1.50');
 const DELIVERY_MAX_RADIUS_KM = parseFloat(process.env.VITE_DELIVERY_MAX_RADIUS_KM || '15');
+const FREE_SHIPPING_MIN_VALUE = parseFloat(process.env.VITE_FREE_SHIPPING_MIN_VALUE || '100');
+const FREE_SHIPPING_BY_VALUE_ENABLED = process.env.VITE_FREE_SHIPPING_MIN_VALUE_ENABLED === 'true';
+
+// [HP-02 FIX] Cache de produtos em memória para evitar N+1 queries
+// TTL de 5 minutos - produtos não mudam com frequência durante o dia
+let productCache: Record<string, any> = {};
+let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 function sanitizeCustomerText(str: unknown, maxLen: number): string {
   if (typeof str !== 'string') return '';
@@ -53,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, error: 'Loja inválida' });
     }
 
-    // Busca todos os produtos do pedido de forma segura e compatível com Firestore
+    // [HP-02 FIX] Busca produtos com cache em memória para evitar N+1 queries
     const productIds = items
       .map((item: any) => String(item?.id || '').trim())
       .filter((id) => id.length > 0);
@@ -62,22 +74,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, error: 'Carrinho inválido. IDs de produtos não informados.' });
     }
 
-    const productMap: Record<string, any> = {};
-
-    const chunkArray = <T,>(arr: T[], size: number): T[][] => {
-      const result: T[][] = [];
-      for (let i = 0; i < arr.length; i += size) {
-        result.push(arr.slice(i, i + size));
-      }
-      return result;
-    };
-
-    const productIdChunks = chunkArray(productIds, 10).filter((chunk) => chunk.length > 0);
-    for (const chunk of productIdChunks) {
-      const productsSnapshot = await adminDb.collection('produtos').where('__name__', 'in', chunk).get();
-      productsSnapshot.forEach(doc => {
-        productMap[doc.id] = doc.data();
+    // Verifica se o cache expirou
+    const now = Date.now();
+    if (now - cacheTimestamp > CACHE_TTL || Object.keys(productCache).length === 0) {
+      // [LOG INTENCIONAL] Logs de API são úteis para debug no Vercel Dashboard
+      console.log('[Checkout] Cache expirado ou vazio. Recarregando produtos...');
+      const allProductsSnapshot = await adminDb.collection('produtos').get();
+      productCache = {};
+      allProductsSnapshot.forEach(doc => {
+        productCache[doc.id] = doc.data();
       });
+      cacheTimestamp = now;
+      console.log(`[Checkout] Cache atualizado com ${Object.keys(productCache).length} produtos.`);
+    }
+
+    // Busca produtos do cache (0 queries ao Firestore!)
+    const productMap: Record<string, any> = {};
+    for (const id of productIds) {
+      if (productCache[id]) {
+        productMap[id] = productCache[id];
+      }
+    }
+
+    // Se algum produto não estiver no cache (produto novo adicionado recentemente),
+    // busca apenas os faltantes do Firestore
+    const missingIds = productIds.filter(id => !productMap[id]);
+    if (missingIds.length > 0) {
+      // [LOG INTENCIONAL] Útil para debug no Vercel Dashboard
+      console.log(`[Checkout] ${missingIds.length} produtos não encontrados no cache. Buscando...`);
+      const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+        const result: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) {
+          result.push(arr.slice(i, i + size));
+        }
+        return result;
+      };
+
+      const missingIdChunks = chunkArray(missingIds, 10).filter((chunk) => chunk.length > 0);
+      for (const chunk of missingIdChunks) {
+        const productsSnapshot = await adminDb.collection('produtos').where('__name__', 'in', chunk).get();
+        productsSnapshot.forEach(doc => {
+          productMap[doc.id] = doc.data();
+          productCache[doc.id] = doc.data(); // Atualiza cache
+        });
+      }
     }
 
     for (const item of items) {
@@ -115,23 +155,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // 3. RE-CÁLCULO DA TAXA DE ENTREGA
-    let deliveryFee = 0;
-    const roundedKm = Math.round((distanceKm || 0) * 10) / 10;
+    // 3. RE-CÁLCULO DA TAXA DE ENTREGA usando função centralizada
+    // [MP-01 FIX] Usa calculateDeliveryFeeShared para garantir consistência
+    const config: DeliveryConfig = {
+      baseFee: DELIVERY_BASE_FEE,
+      baseRadiusKm: DELIVERY_BASE_RADIUS_KM,
+      perKmFee: DELIVERY_PER_KM_FEE,
+      maxRadiusKm: DELIVERY_MAX_RADIUS_KM,
+      freeShippingMinValue: FREE_SHIPPING_MIN_VALUE,
+      freeShippingByValueEnabled: FREE_SHIPPING_BY_VALUE_ENABLED,
+    };
 
-    if (roundedKm > DELIVERY_MAX_RADIUS_KM) {
+    const deliveryResult = calculateDeliveryFeeShared(
+      distanceKm || 0,
+      hasFreeShipping,
+      subtotal,
+      config
+    );
+
+    if (!deliveryResult.isInRange) {
       return res.status(400).json({ success: false, error: 'Endereço fora da área de cobertura' });
     }
 
-    if (!hasFreeShipping) {
-      if (roundedKm <= DELIVERY_BASE_RADIUS_KM) {
-        deliveryFee = DELIVERY_BASE_FEE;
-      } else {
-        const extraKm = roundedKm - DELIVERY_BASE_RADIUS_KM;
-        deliveryFee = DELIVERY_BASE_FEE + (Math.ceil(extraKm) * DELIVERY_PER_KM_FEE);
-      }
-    }
-
+    const deliveryFee = deliveryResult.fee;
     const total = subtotal + deliveryFee;
 
     const safeName = sanitizeCustomerText(customerName, 100);

@@ -8,7 +8,7 @@
 //           window.open(), garantindo UI limpa antes do redirecionamento.
 //   [FIX-3] Frete grátis por valor total: hasFreeShippingByTotal calculado a
 //           partir do cartTotal + parseFloat seguro, com threshold do .env.
-//   [FIX-4] import 'collection' e 'addDoc' removidos (não usados → bundle menor).
+//   [BP-01 FIX] Imports não utilizados removidos (serverTimestamp, setDoc, doc).
 //   [FIX-5] useCallback em handleConfirmOrder para evitar re-criação desnecessária.
 // =============================================================================
 
@@ -18,6 +18,7 @@ import { useCart } from '../../shared/hooks/useCart';
 import { generateWhatsAppLink, STORE_WHATSAPP_NUMBERS } from '../../shared/utils/whatsapp';
 import { DEFAULT_PLACEHOLDER_IMAGE } from '../../shared/utils/placeholderImage';
 import { fetchAddressFromCEP, geocodeAddress, haversineDistance } from '../../shared/utils/geolocation';
+import { logger } from '../../shared/utils/logger';
 import {
   STORE_COORDINATES,
   calculateDeliveryFee,
@@ -27,9 +28,9 @@ import {
 import { isStoreOpen, getStoreHoursLabel } from '../../shared/config/businessHours';
 import type { StoreId } from '../../shared/types';
 import { Link } from 'react-router-dom';
-import { serverTimestamp, setDoc, doc } from 'firebase/firestore';
-import { db } from '../../shared/lib/firebase';
+
 import { SoftNotificationPrompt } from '../../shared/components/SoftNotificationPrompt';
+import { formatCurrency } from '../../shared/utils/currency';
 
 // ---------------------------------------------------------------------------
 // [FIX-3] Leitura segura do threshold de frete grátis por valor
@@ -224,7 +225,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       const changeValue = parseFloat(cleanChange);
       if (isNaN(changeValue) || changeValue < totalGeral) {
         setCheckoutError(
-          `Valor do troco (R$ ${cleanChange}) inválido. Deve ser maior que o total do pedido (R$ ${totalGeral.toFixed(2).replace('.', ',')}).`
+          `Valor do troco (R$ ${cleanChange}) inválido. Deve ser maior que o total do pedido (${formatCurrency(totalGeral)}).`
         );
         return;
       }
@@ -242,7 +243,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       const sanitizedName = sanitize(customerName);
       const sanitizedAddress = sanitize(deliveryAddress);
 
-      console.log('[CartDrawer] Token FCM do localStorage:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
+      logger.debug('[CartDrawer] Token FCM do localStorage:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
 
       // Garante que fcmToken seja null se for string vazia ou inválida
       const finalFcmToken = (fcmToken && fcmToken !== 'false' && fcmToken !== 'null') ? fcmToken : null;
@@ -279,7 +280,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         distanceKm: activeDelivery?.distanceKm || 0,
       };
 
-      console.log('[CartDrawer] Enviando checkoutPayload com fcmToken:', !!fcmToken);
+      logger.debug('[CartDrawer] Enviando checkoutPayload com fcmToken:', !!fcmToken);
 
       // Salva pedido no Firebase via API (server-side)
       const response = await fetch('/api/checkout', {
@@ -436,10 +437,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
                     <div className="flex items-center justify-between mt-[4px]">
                       <span className="text-[13px] text-primary font-[600]">
-                        R${' '}
-                        {((item.price || 0) * (item.quantity || 0))
-                          .toFixed(2)
-                          .replace('.', ',')}
+                        {formatCurrency((item.price || 0) * (item.quantity || 0))}
                       </span>
                       <div
                         className="flex items-center bg-primary rounded-[4px] text-white h-[24px] px-[2px]"
@@ -473,7 +471,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50 shrink-0 space-y-3">
             <div className="flex justify-between text-[14px] text-muted">
               <span>Subtotal</span>
-              <span>R$ {(cartTotal || 0).toFixed(2).replace('.', ',')}</span>
+              <span>{formatCurrency(cartTotal || 0)}</span>
             </div>
             <div className="flex justify-between text-[14px] text-muted">
               <div className="flex items-center gap-1">
@@ -490,13 +488,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <span className={deliveryFee === 0 ? 'text-green-600 font-semibold' : ''}>
                   {deliveryFee === 0
                     ? 'Grátis'
-                    : `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`}
+                    : formatCurrency(deliveryFee)}
                 </span>
                 {/* [FIX-3] Exibe badge quando frete grátis é por valor mínimo */}
                 {hasFreeShippingByTotal && !hasFreeShippingByItem && (
                   <div className="text-[10px] text-green-600">
-                    Pedido acima de R${' '}
-                    {FREE_SHIPPING_MIN_VALUE.toFixed(2).replace('.', ',')}
+                    Pedido acima de {formatCurrency(FREE_SHIPPING_MIN_VALUE)}
                   </div>
                 )}
                 {delivery && (
@@ -507,7 +504,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             <div className="border-t border-dashed border-gray-200" />
             <div className="flex justify-between font-[700] text-[18px] text-text">
               <span>Total</span>
-              <span>R$ {(totalGeral || 0).toFixed(2).replace('.', ',')}</span>
+              <span>{formatCurrency(totalGeral || 0)}</span>
             </div>
             {checkoutError && !isModalOpen && (
               <div className="rounded-[10px] bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-start gap-2">
@@ -662,8 +659,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 )}
                 {delivery && delivery.isInRange && (
                   <p className="text-green-600 text-[12px] mt-1 flex items-center gap-1">
-                    <MapPin size={12} /> {delivery.description} — R${' '}
-                    {delivery.fee.toFixed(2).replace('.', ',')}
+                    <MapPin size={12} /> {delivery.description} — {formatCurrency(delivery.fee)}
                   </p>
                 )}
               </div>
