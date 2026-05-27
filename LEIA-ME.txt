@@ -1,0 +1,219 @@
+================================================================================
+  SUPERMERCADO SAGRADA FAMÍLIA — E-COMMERCE DE DELIVERY
+  Documentação para Desenvolvedores
+================================================================================
+
+1. DESCRIÇÃO DO PROJETO
+--------------------------------------------------------------------------------
+
+Este é o sistema de e-commerce (loja virtual) desenvolvido para o Supermercado
+Sagrada Família. Ele permite que os clientes:
+
+  • Naveguem pelo catálogo de produtos organizados por categoria.
+  • Adicionem itens ao carrinho de compras.
+  • Escolham a unidade da loja (Benedito Bentes, Vergel ou Salvador Lyra).
+  • Finalizem o pedido via WhatsApp, já com resumo dos itens, subtotal,
+    taxa de entrega e valor total.
+
+O sistema também conta com um painel administrativo (/admin) protegido por
+autenticação, onde o gestor pode cadastrar, editar e excluir produtos, além
+de fazer upload de imagens.
+
+
+2. TECNOLOGIAS UTILIZADAS
+--------------------------------------------------------------------------------
+
+  Front-end
+  ---------
+  • React 19          — Biblioteca principal de UI (componentização e estado).
+  • TypeScript 5.8    — Tipagem estática para maior segurança no código.
+  • Tailwind CSS 4    — Framework de estilização utilitário.
+  • Zustand           — Gerenciamento de estado global (carrinho, loja, etc.).
+  • React Router v7   — Roteamento SPA (Single Page Application).
+  • Lucide React      — Biblioteca de ícones em SVG.
+  • Vite 6            — Bundler e servidor de desenvolvimento.
+
+  Back-end / Serviços
+  --------------------
+  • Firebase Auth         — Autenticação do painel administrativo.
+  • Firebase Firestore    — Banco de dados NoSQL para produtos e categorias.
+  • Firebase Storage      — Armazenamento de imagens (quando aplicável).
+  • ImgBB API             — Upload de imagens de produtos.
+
+  Hospedagem
+  ----------
+  • Vercel               — Hospedagem e deploy contínuo do front-end.
+
+
+3. ESTRUTURA DE PASTAS (RESUMO)
+--------------------------------------------------------------------------------
+
+  supermercado-sagrada-familia/
+  ├── public/              → Arquivos estáticos (favicon, imagens, etc.)
+  ├── scripts/             → Scripts auxiliares (importação de produtos)
+  ├── src/
+  │   ├── components/      → Componentes reutilizáveis (Header, Card, etc.)
+  │   ├── contexts/        → Contexts do React (autenticação, etc.)
+  │   ├── hooks/           → Hooks customizados
+  │   ├── lib/             → Configuração do Firebase e utilitários de SDK
+  │   ├── pages/           → Páginas da aplicação (Home, Admin)
+  │   ├── store/           → Stores do Zustand (carrinho, estado global)
+  │   ├── types/           → Tipos e interfaces TypeScript
+  │   ├── utils/           → Funções utilitárias (taxas, formatação, etc.)
+  │   ├── App.tsx          → Componente raiz com rotas
+  │   ├── main.tsx         → Ponto de entrada da aplicação
+  │   └── index.css        → Estilos globais e importação do Tailwind
+  ├── .env.example         → Template das variáveis de ambiente
+  ├── .env.local           → Variáveis de ambiente reais (NÃO versionar)
+  ├── firestore.rules      → Regras de segurança do Firestore
+  ├── vercel.json          → Configuração de rewrites para SPA na Vercel
+  ├── package.json         → Dependências e scripts do projeto
+  ├── tsconfig.json        → Configuração do TypeScript
+  └── vite.config.ts       → Configuração do Vite
+
+
+4. COMO RODAR O PROJETO LOCALMENTE
+--------------------------------------------------------------------------------
+
+  Pré-requisitos:
+    • Node.js 18 ou superior instalado (https://nodejs.org)
+    • npm (já vem com o Node.js)
+    • Uma conta no Firebase com projeto configurado
+
+  Passo a passo:
+
+  4.1. Clone ou extraia o código-fonte em uma pasta de sua preferência.
+
+  4.2. Abra o terminal na raiz do projeto e instale as dependências:
+
+       npm install
+
+  4.3. Crie o arquivo de variáveis de ambiente:
+
+       Copie o arquivo .env.example para .env.local:
+
+       cp .env.example .env.local          (Linux / macOS)
+       copy .env.example .env.local        (Windows CMD)
+
+       Em seguida, abra o .env.local e preencha todas as variáveis com os
+       valores reais do seu projeto Firebase, números de WhatsApp e chave
+       do ImgBB. Veja a seção 5 para mais detalhes.
+
+  4.4. Inicie o servidor de desenvolvimento:
+
+       npm run dev
+
+       O projeto será iniciado em http://localhost:3000
+
+  4.5. Para gerar a versão de produção (build):
+
+       npm run build
+
+       Os arquivos otimizados serão gerados na pasta /dist.
+
+
+5. VARIÁVEIS DE AMBIENTE (.env.local)
+--------------------------------------------------------------------------------
+
+  ATENÇÃO: O arquivo .env.local contém credenciais sensíveis e NÃO deve ser
+  versionado no Git. Ele já está incluído no .gitignore.
+
+  O arquivo .env.example serve como referência. Abaixo, a explicação de cada
+  grupo de variáveis:
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  FIREBASE CLIENT SDK                                                   │
+  │                                                                        │
+  │  VITE_FIREBASE_API_KEY           → Chave da API do projeto Firebase    │
+  │  VITE_FIREBASE_AUTH_DOMAIN       → Domínio de autenticação             │
+  │  VITE_FIREBASE_PROJECT_ID        → ID do projeto no Firebase           │
+  │  VITE_FIREBASE_STORAGE_BUCKET    → Bucket de armazenamento             │
+  │  VITE_FIREBASE_MESSAGING_SENDER_ID → ID do remetente de mensagens     │
+  │  VITE_FIREBASE_APP_ID            → ID da aplicação Firebase            │
+  │                                                                        │
+  │  Onde obter: Firebase Console → Configurações do Projeto → Seus apps   │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  WHATSAPP POR LOJA                                                     │
+  │                                                                        │
+  │  VITE_WHATSAPP_BENEDITO_BENTES   → Número da loja Benedito Bentes      │
+  │  VITE_WHATSAPP_VERGEL            → Número da loja Vergel do Lago       │
+  │  VITE_WHATSAPP_SALVADOR_LYRA     → Número da loja Salvador Lyra        │
+  │                                                                        │
+  │  Formato: código do país + DDD + número (ex: 5582912345678)            │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  IMGBB (Upload de imagens)                                             │
+  │                                                                        │
+  │  VITE_IMGBB_API_KEY              → Chave de API do ImgBB               │
+  │                                                                        │
+  │  Onde obter: https://api.imgbb.com/                                    │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  TAXA DE ENTREGA POR LOJA                                              │
+  │                                                                        │
+  │  VITE_TAXA_BENEDITO_BENTES       → Taxa em reais (ex: 5)               │
+  │  VITE_TAXA_VERGEL                → Taxa em reais (ex: 5)               │
+  │  VITE_TAXA_SALVADOR_LYRA         → Taxa em reais (ex: 5)               │
+  │                                                                        │
+  │  Use 0 ou deixe vazio para entrega grátis.                             │
+  │  Para alterar a taxa, basta mudar o valor aqui e reiniciar o servidor. │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+6. DEPLOY NA VERCEL
+--------------------------------------------------------------------------------
+
+  O projeto está configurado para deploy na Vercel. O arquivo vercel.json já
+  possui as regras de rewrite necessárias para o funcionamento correto do
+  React Router (SPA).
+
+  Para fazer deploy:
+
+  6.1. Conecte o repositório Git à Vercel (https://vercel.com).
+  6.2. Configure as variáveis de ambiente no painel da Vercel
+       (Settings → Environment Variables) com os mesmos valores do .env.local.
+  6.3. O deploy será feito automaticamente a cada push na branch principal.
+
+  Comando de build na Vercel:   npm run build
+  Diretório de saída:           dist
+
+
+7. SCRIPTS DISPONÍVEIS
+--------------------------------------------------------------------------------
+
+  npm run dev              → Inicia o servidor de desenvolvimento (porta 3000)
+  npm run build            → Gera o build de produção na pasta /dist
+  npm run preview          → Pré-visualiza o build de produção localmente
+  npm run lint             → Verifica erros de tipagem TypeScript
+  npm run import-products  → Importa produtos para o Firestore via script
+  npm run import-mock      → Importa produtos de teste (mock) para o Firestore
+
+
+8. OBSERVAÇÕES IMPORTANTES
+--------------------------------------------------------------------------------
+
+  • O arquivo serviceAccountKey.json contém credenciais administrativas do
+    Firebase e é usado apenas pelos scripts de importação. Ele NÃO deve ser
+    compartilhado publicamente nem versionado em repositórios abertos.
+
+  • As regras de segurança do Firestore estão definidas em firestore.rules.
+    Caso seja necessário alterá-las, aplique-as via Firebase CLI:
+
+       firebase deploy --only firestore:rules
+
+  • O painel administrativo é acessado pela rota /admin e requer login com
+    e-mail e senha cadastrados no Firebase Authentication.
+
+  • Todas as variáveis de ambiente acessíveis pelo front-end começam com o
+    prefixo VITE_ (exigência do Vite). Variáveis sem esse prefixo não serão
+    expostas ao navegador.
+
+
+================================================================================
+  Desenvolvido em 2026 — Supermercado Sagrada Família
+  Em caso de dúvidas, entre em contato com o desenvolvedor responsável.
+================================================================================
