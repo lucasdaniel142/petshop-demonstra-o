@@ -136,29 +136,28 @@ export const PriceManager: React.FC = () => {
   };
 
   const handleNotifyOffers = async () => {
+    const confirmed = window.confirm('Deseja enviar notificações de ofertas para todos os clientes cadastrados?');
+    if (!confirmed) return;
+
     setIsNotifying(true);
     setFeedback(null);
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error('Não autenticado');
 
-      const response = await fetch('/api/notify-offers', {
+      const response = await fetch('/api/send-promotions', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          title: '🚨 Novas Ofertas Disponíveis!',
-          body: 'Corra para o app e confira os produtos com desconto especial hoje.',
-        }),
       });
       
       const data = await response.json();
       if (response.ok) {
         setFeedback({ 
           type: 'success', 
-          message: `Notificações enviadas com sucesso para ${data.sentCount ?? 0} dispositivos!` 
+          message: `Notificações enviadas com sucesso para ${data.sent ?? 0} dispositivos!` 
         });
       } else {
         setFeedback({ type: 'error', message: data.error || 'Erro ao enviar notificações' });
