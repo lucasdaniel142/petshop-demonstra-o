@@ -6,7 +6,7 @@
 // o usuário clica explicitamente em um botão de opt-in.
 // =============================================================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { onMessage } from 'firebase/messaging';
 import { getFirebaseMessaging } from '../lib/firebase';
 import { requestPermission, getNotificationToken } from '../lib/notifications';
@@ -29,6 +29,7 @@ export function usePushNotifications() {
     typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null
   );
   const [permission, setPermission] = useState<NotificationPermission>('default');
+  const didSyncTokenRef = useRef(false);
 
   // Lê o estado atual da permissão sem pedir nada
   useEffect(() => {
@@ -36,6 +37,15 @@ export function usePushNotifications() {
       setPermission(Notification.permission);
     }
   }, []);
+
+  useEffect(() => {
+    if (permission !== 'granted') return;
+    if (didSyncTokenRef.current) return;
+    didSyncTokenRef.current = true;
+    getNotificationToken().then((t) => {
+      if (t) setToken(t);
+    });
+  }, [permission]);
 
   // Escuta mensagens em foreground e exibe toast
   useEffect(() => {

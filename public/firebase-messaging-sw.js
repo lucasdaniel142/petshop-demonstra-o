@@ -74,26 +74,30 @@ try {
     messaging.onBackgroundMessage((payload) => {
       console.log('[firebase-messaging-sw.js] Mensagem recebida em background ', payload);
 
-      const notificationTitle = payload.notification?.title || 'Supermercado Sagrada Família';
+      const notificationTitle =
+        payload.notification?.title ||
+        payload.data?.title ||
+        'Supermercado Sagrada Família';
       const notificationOptions = {
-        body: payload.notification?.body || 'Nova atualização disponível',
+        body: payload.notification?.body || payload.data?.body || 'Nova atualização disponível',
         icon: '/icons/icon-sagrada-familia-app.png',
         badge: '/icons/icon-192.png',
         vibrate: [200, 100, 200],
         tag: 'sagrada-familia-notification',
         requireInteraction: false,
-        // Configurações para garantir notificação nativa na barra de notificações
         silent: false,
-        // Prioridade alta para garantir visibilidade
-        priority: 'high',
-        // Título curto para mobile
-        shortTitle: payload.notification?.title || 'Supermercado',
-        // Dados para clique
         data: {
-          url: payload.fcmOptions?.link || payload.webpush?.fcmOptions?.link || '/',
-          click_action: payload.fcmOptions?.link || payload.webpush?.fcmOptions?.link || '/'
+          url:
+            payload.data?.link ||
+            payload.fcmOptions?.link ||
+            payload.webpush?.fcmOptions?.link ||
+            '/',
+          click_action:
+            payload.data?.link ||
+            payload.fcmOptions?.link ||
+            payload.webpush?.fcmOptions?.link ||
+            '/',
         },
-        // Ações possíveis na notificação
         actions: [
           {
             action: 'open',
@@ -101,12 +105,6 @@ try {
             icon: '/icons/icon-192.png'
           }
         ],
-        // Configurações específicas para Android
-        android: {
-          channelId: 'sagrada-familia-notifications',
-          priority: 'high',
-          visibility: 'public'
-        }
       };
 
       return self.registration.showNotification(notificationTitle, notificationOptions);

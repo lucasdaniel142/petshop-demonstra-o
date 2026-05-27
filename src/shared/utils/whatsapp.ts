@@ -41,7 +41,8 @@ export function generateWhatsAppLink(
     .map(item => `• ${item.quantity}x ${item.name} (${formatCurrency(item.price * item.quantity)})`)
     .join('\n');
 
-  const deliveryWarning = isFallback ? '\n⚠️ *API INDISPONÍVEL: Confirmar distância!*' : '';
+  const showFallbackWarning = import.meta.env.VITE_SHOW_DELIVERY_FALLBACK_WARNING === 'true';
+  const deliveryWarning = showFallbackWarning && isFallback ? '\n⚠️ *Confirmar taxa de entrega com a loja.*' : '';
 
   const text = `${EMOJI.BOX} *NOVO PEDIDO - ${storeLabel}*
 

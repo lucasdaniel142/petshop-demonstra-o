@@ -57,7 +57,12 @@ export async function getNotificationToken(): Promise<string | null> {
     }
 
     const messaging = getMessaging(app);
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    const swRegistration =
+      'serviceWorker' in navigator ? await navigator.serviceWorker.ready : undefined;
+    const token = await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      ...(swRegistration ? { serviceWorkerRegistration: swRegistration } : {}),
+    });
 
     if (!token) {
       loggers.fcm.warn('Token vazio retornado pelo SDK.');
