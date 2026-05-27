@@ -1,27 +1,60 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-// Como o SW roda num contexto isolado (não tem acesso ao import.meta.env do Vite),
-// uma forma simples é fazer fetch das configurações, ou você pode
-// deixar essas configs públicas hardcoded aqui, já que a config do Firebase
-// de frontend é pública.
+const CACHE_NAME = 'ecommerce-v3';
+const STATIC_ASSETS = ['/', '/manifest.json', '/logo.png', '/icons/icon-sagrada-familia-app.png'];
 
-// Para o white label sem editar arquivos: o ideal seria injetar as varáveis.
-// Usando a API de URLSearchParams:
-self.addEventListener('install', () => {
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
   event.waitUntil(self.clients.claim());
 });
+self.addEventListener('fetch', (event) => {
+  if (
+    event.request.url.includes('firestore.googleapis.com') ||
+    event.request.url.includes('firebasestorage.googleapis.com') ||
+    event.request.url.includes('.firebasestorage.app') ||
+    event.request.url.includes('viacep.com.br') ||
+    event.request.url.includes('nominatim.openstreetmap.org') ||
+    event.request.url.includes('api.imgbb.com') ||
+    event.request.url.includes('img.icons8.com') ||
+    event.request.url.includes('vercel.live') ||
+    event.request.url.includes('chrome-extension://') ||
+    event.request.method !== 'GET'
+  ) {
+    return;
+  }
 
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (!response || response.status !== 200 || response.type === 'opaque') {
+          return response;
+        }
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request).then((r) => r || new Response('Offline', { status: 503 })))
+  );
+});
 // A Firebase config real precisará ser passada de alguma forma.
 // O approach mais simples em templates white-label é exigir
 // que o cliente cole a config aqui também se for usar push.
 // Mas para evitar que o cliente mexa no código, podemos carregar de uma API
 // ou apenas usar o onBackgroundMessage genérico e deixar a injeção via vite-plugin-pwa,
 // ou simplesmente deixar comentado e documentado.
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyD8uwYVG34wf5m0BlbFOf6_Dmdlh0lqGs4",

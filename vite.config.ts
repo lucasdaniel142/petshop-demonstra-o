@@ -7,7 +7,6 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,24 +15,6 @@ export default defineConfig({
   plugins: [
     react(), 
     tailwindcss(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'icons/*.svg', 'icons/*.png', 'icons/*.webp'],
-      manifest: {
-        name: 'Supermercado Sagrada Família',
-        short_name: 'Sagrada Família',
-        description: 'Seu supermercado na palma da mão - Peça e receba em casa.',
-        theme_color: '#1a4e22', // Cor predominante da marca
-        background_color: '#ffffff',
-        display: 'standalone',
-        start_url: '/',
-        icons: [
-          { src: 'icons/icon-sagrada-familia.webp', sizes: '192x192', type: 'image/webp', purpose: 'any' },
-          { src: 'icons/icon-sagrada-familia.webp', sizes: '512x512', type: 'image/webp', purpose: 'any' },
-          { src: 'icons/icon-sagrada-familia.webp', sizes: '512x512', type: 'image/webp', purpose: 'maskable' },
-        ]
-      }
-    })
   ],
   resolve: {
     alias: {
