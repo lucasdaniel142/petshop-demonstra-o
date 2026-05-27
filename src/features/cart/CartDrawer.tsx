@@ -31,6 +31,7 @@ import { Link } from 'react-router-dom';
 
 import { SoftNotificationPrompt } from '../../shared/components/SoftNotificationPrompt';
 import { formatCurrency } from '../../shared/utils/currency';
+import { linkNotificationTokenToPhone } from '../../shared/lib/notifications';
 
 // ---------------------------------------------------------------------------
 // [FIX-3] Leitura segura do threshold de frete grátis por valor
@@ -92,9 +93,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Busca token FCM do localStorage (registrado silenciosamente pelo App.tsx)
-  const fcmToken = typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null;
 
   const isNameInvalid = checkoutError !== null && !customerName.trim();
   const isAddressInvalid = checkoutError !== null && !deliveryAddress.trim();
@@ -243,17 +241,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       const sanitizedName = sanitize(customerName);
       const sanitizedAddress = sanitize(deliveryAddress);
 
-      logger.debug('[CartDrawer] Token FCM do localStorage:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
+      try {
+        localStorage.setItem('lastOrderPhone', cleanPhone);
+      } catch {}
+
+      const fcmToken =
+        typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null;
+
+      logger.debug(
+        '[CartDrawer] Token FCM do localStorage:',
+        fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM'
+      );
 
       // Garante que fcmToken seja null se for string vazia ou inválida
       const finalFcmToken = (fcmToken && fcmToken !== 'false' && fcmToken !== 'null') ? fcmToken : null;
 
       if (!finalFcmToken) {
         console.warn('[CartDrawer] Token FCM inválido ou não encontrado');
+      } else {
+        await linkNotificationTokenToPhone(finalFcmToken, cleanPhone);
       }
-
-      // Atualização do token com telefone desabilitada temporariamente devido a erros de permissão no Firestore
-      // O token já está no localStorage e será enviado no checkout
 
       let changeForNum: number | null = null;
       if (paymentMethod === 'Dinheiro' && changeFor) {
@@ -280,7 +287,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         distanceKm: activeDelivery?.distanceKm || 0,
       };
 
-      logger.debug('[CartDrawer] Enviando checkoutPayload com fcmToken:', !!fcmToken);
+      logger.debug('[CartDrawer] Enviando checkoutPayload com fcmToken:', !!finalFcmToken);
 
       // Salva pedido no Firebase via API (server-side)
       const response = await fetch('/api/checkout', {

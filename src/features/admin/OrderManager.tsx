@@ -23,11 +23,11 @@ import { useNotificationSound } from '../../shared/hooks/useNotificationSound';
 // Emojis definidos via Unicode Escape Sequences para evitar corrupção de
 // surrogate pairs em ambientes Windows/VS Code com encoding inconsistente.
 const E = {
-  BELL:   '\u{1F514}', // 🔔
-  BOX:    '\u{1F4E6}', // 📦
-  TRUCK:  '\u{1F69A}', // 🚚
-  CHECK:  '\u{2705}',  // ✅
-  CROSS:  '\u{274C}',  // ❌
+  BELL:   String.fromCodePoint(0x1F514), // 🔔
+  BOX:    String.fromCodePoint(0x1F4E6), // 📦
+  TRUCK:  String.fromCodePoint(0x1F69A), // 🚚
+  CHECK:  String.fromCodePoint(0x2705),  // ✅
+  CROSS:  String.fromCodePoint(0x274C),  // ❌
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; whatsappMessage: string }> = {
@@ -248,17 +248,17 @@ export const OrderManager: React.FC = () => {
       console.log('[OrderManager] Token FCM do pedido:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
       
       // [HP-05 FIX] Se o pedido não tem token, tenta buscar pelo telefone
-      // IMPORTANTE: Esta query requer índice no Firestore (fcmTokens: phone ASC, updatedAt DESC)
+      // IMPORTANTE: Esta query requer índice no Firestore (fcmTokens: phone ASC, lastUsed DESC)
       // Crie o índice em: https://console.firebase.google.com/project/_/firestore/indexes
       if (!fcmToken && order?.phone) {
         console.log('[OrderManager] Pedido sem token, buscando token pelo telefone:', order.phone);
         try {
-          // Busca o token mais recente para este telefone (ordenado por updatedAt DESC)
+          // Busca o token mais recente para este telefone (ordenado por lastUsed DESC)
           const fcmTokensSnapshot = await getDocs(
             query(
               collection(db, 'fcmTokens'), 
               where('phone', '==', order.phone),
-              orderBy('updatedAt', 'desc'),
+              orderBy('lastUsed', 'desc'),
               limit(1)
             )
           );
@@ -327,9 +327,6 @@ export const OrderManager: React.FC = () => {
         } catch (e) {
           console.warn('[notify] Falha na requisição:', e);
         }
-      } else {
-        console.warn('[OrderManager] Pedido não tem token FCM - notificação não enviada');
-        console.warn('[OrderManager] O cliente precisa fazer um novo pedido para receber notificações');
       }
     } catch (err) {
       console.error('[OrderManager] Erro ao atualizar status:', err);

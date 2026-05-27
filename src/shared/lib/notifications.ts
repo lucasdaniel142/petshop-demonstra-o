@@ -15,7 +15,7 @@
 // =============================================================================
 
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
-import { doc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, deleteDoc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { app, db } from './firebase';
 import { loggers } from '../utils/logger';
 
@@ -64,21 +64,53 @@ export async function getNotificationToken(): Promise<string | null> {
       return null;
     }
 
-    // Persiste no Firestore para que o admin possa enviar notificações
-    await setDoc(doc(db, 'fcmTokens', token), {
-      token,
-      updatedAt: serverTimestamp(),
-      platform: navigator.userAgent,
-    });
-
-    // Persiste no localStorage para uso no checkout (CartDrawer)
     localStorage.setItem('fcmToken', token);
+
+    const phone = localStorage.getItem('lastOrderPhone');
+    const tokenRef = doc(db, 'fcmTokens', token);
+    try {
+      const existing = await getDoc(tokenRef);
+      const payload: Record<string, unknown> = {
+        lastUsed: serverTimestamp(),
+        platform: navigator.userAgent,
+      };
+      if (phone) payload.phone = phone;
+      if (!existing.exists()) payload.createdAt = serverTimestamp();
+      else {
+        const createdAt = existing.data()?.createdAt;
+        if (createdAt) payload.createdAt = createdAt;
+      }
+      await setDoc(tokenRef, payload);
+    } catch (err) {
+      loggers.fcm.warn('Falha ao persistir token no Firestore (mantendo token local):', err);
+    }
 
     loggers.fcm.info('Token registrado com sucesso:', token.slice(0, 20) + '...');
     return token;
   } catch (err) {
     loggers.fcm.error('Erro ao obter token de notificação:', err);
     return null;
+  }
+}
+
+export async function linkNotificationTokenToPhone(token: string, phone: string): Promise<void> {
+  try {
+    if (!token || !phone) return;
+    const tokenRef = doc(db, 'fcmTokens', token);
+    const existing = await getDoc(tokenRef);
+    const payload: Record<string, unknown> = {
+      lastUsed: serverTimestamp(),
+      platform: navigator.userAgent,
+      phone,
+    };
+    if (!existing.exists()) payload.createdAt = serverTimestamp();
+    else {
+      const createdAt = existing.data()?.createdAt;
+      if (createdAt) payload.createdAt = createdAt;
+    }
+    await setDoc(tokenRef, payload);
+  } catch (err) {
+    loggers.fcm.warn('Falha ao vincular token ao telefone:', err);
   }
 }
 
