@@ -142,13 +142,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fcmError?.httpErrorCode?.status === 410;
 
     if (isTokenInvalid) {
-      console.warn(`[FCM] Token inválido/expirado detectado. Deletando: ${token.slice(0, 20)}...`);
+      console.warn(`[FCM] Token inválido/expirado detectado. Tentando buscar novo token pelo telefone.`);
       try {
+        // Busca o documento do token antes de deletar para obter o telefone
+        const tokenDoc = await getFirestore().collection('fcmTokens').doc(token).get();
+        const phone = tokenDoc.data()?.phone;
+
+        // Deleta o token expirado
         await getFirestore().collection('fcmTokens').doc(token).delete();
-        console.info('[FCM] Token removido do Firestore (server-side).');
+        console.info('[FCM] Token expirado removido do Firestore.');
+
+        // Se tiver telefone, tenta buscar um novo token
+        if (phone) {
+          console.log('[FCM] Buscando novo token para telefone:', phone);
+          const db = getFirestore();
+          const fcmTokensSnapshot = await db
+            .collection('fcmTokens')
+            .where('phone', '==', phone)
+            .orderBy('updatedAt', 'desc')
+            .limit(1)
+            .get();
+
+          if (!fcmTokensSnapshot.empty) {
+            const newToken = fcmTokensSnapshot.docs[0].id;
+            console.log('[FCM] Novo token encontrado, reenviando notificação.');
+            
+            // Reenvia a notificação com o novo token
+            const newMessage: Message = {
+              ...message,
+              token: newToken,
+            };
+            const messageId = await getMessaging().send(newMessage);
+            return res.status(200).json({ success: true, messageId, tokenRefreshed: true });
+          } else {
+            console.log('[FCM] Nenhum token encontrado para o telefone:', phone);
+          }
+        }
       } catch (deleteErr) {
-        console.error('[FCM] Falha ao deletar token expirado:', deleteErr);
+        console.error('[FCM] Falha ao buscar novo token:', deleteErr);
       }
+
       return res.status(410).json({
         error: 'Token FCM expirado ou inválido. Token removido do banco.',
         code: 'TOKEN_REVOKED',
