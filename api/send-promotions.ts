@@ -47,15 +47,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
     }
 
-    // 2. Buscar configurações de promoção do Firestore
+    // 2. Buscar configurações de promoção do Firestore (cria documento padrão se não existir)
     const promotionDoc = await adminDb.collection('system_settings').doc('promotion').get();
-    if (!promotionDoc.exists) {
-      return res.status(404).json({ error: 'Configurações de promoção não encontradas.' });
-    }
+    let title = '🚨 Novas Ofertas Disponíveis!';
+    let body = 'Corra para o app e confira os produtos com desconto especial hoje.';
 
-    const promotionData = promotionDoc.data();
-    const title = promotionData?.defaultTitle || '🚨 Novas Ofertas Disponíveis!';
-    const body = promotionData?.defaultMessage || 'Corra para o app e confira os produtos com desconto especial hoje.';
+    if (!promotionDoc.exists) {
+      // Criar documento padrão automaticamente
+      await adminDb.collection('system_settings').doc('promotion').set({
+        defaultTitle: title,
+        defaultMessage: body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      console.log('[API Send-Promotions] Documento de configuração padrão criado: system_settings/promotion');
+    } else {
+      const promotionData = promotionDoc.data();
+      title = promotionData?.defaultTitle || title;
+      body = promotionData?.defaultMessage || body;
+    }
 
     // 3. Buscar todos os dispositivos cadastrados na coleção fcmTokens
     const BATCH_SIZE = 500;
@@ -84,6 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 4. Enviar notificações em massa usando sendEachForMulticast
     let totalSuccess = 0;
     let totalFailed = 0;
+    let tokensDeleted = 0;
 
     for (let i = 0; i < allTokens.length; i += BATCH_SIZE) {
       const batch = allTokens.slice(i, i + BATCH_SIZE);
@@ -99,12 +110,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       totalSuccess += response.successCount;
       totalFailed += response.failureCount;
+
+      // [FIX-FCM-SERVER] Tratamento de erro 410 - deletar tokens inválidos do Firestore
+      if (response.responses) {
+        for (let j = 0; j < response.responses.length; j++) {
+          const resp = response.responses[j];
+          if (resp.error) {
+            const errorCode = resp.error.code;
+            // Erro 410 (UNREGISTERED) ou código de token não registrado
+            if (errorCode === 'messaging/registration-token-not-registered' ||
+                errorCode === 'messaging/invalid-registration-token') {
+              const invalidToken = batch[j];
+              try {
+                await adminDb.collection('fcmTokens').doc(invalidToken).delete();
+                tokensDeleted++;
+                console.log(`[API Send-Promotions] Token inválido removido: ${invalidToken}`);
+              } catch (deleteErr) {
+                console.error(`[API Send-Promotions] Erro ao deletar token ${invalidToken}:`, deleteErr);
+              }
+            }
+          }
+        }
+      }
     }
 
     return res.status(200).json({
       success: true,
       sent: totalSuccess,
-      failed: totalFailed
+      failed: totalFailed,
+      tokensDeleted
     });
 
   } catch (error: any) {
