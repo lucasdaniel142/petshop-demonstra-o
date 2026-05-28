@@ -75,12 +75,14 @@ export async function getNotificationToken(): Promise<string | null> {
     const tokenRef = doc(db, 'fcmTokens', token);
     try {
       const existing = await getDoc(tokenRef);
+      const now = new Date().toISOString();
       const payload: Record<string, unknown> = {
-        lastUsed: serverTimestamp(),
+        lastUsed: now,
+        updatedAt: now,
         platform: navigator.userAgent,
       };
       if (phone) payload.phone = phone;
-      if (!existing.exists()) payload.createdAt = serverTimestamp();
+      if (!existing.exists()) payload.createdAt = now;
       else {
         const createdAt = existing.data()?.createdAt;
         if (createdAt) payload.createdAt = createdAt;
@@ -103,12 +105,14 @@ export async function linkNotificationTokenToPhone(token: string, phone: string)
     if (!token || !phone) return;
     const tokenRef = doc(db, 'fcmTokens', token);
     const existing = await getDoc(tokenRef);
+    const now = new Date().toISOString();
     const payload: Record<string, unknown> = {
-      lastUsed: serverTimestamp(),
+      lastUsed: now,
+      updatedAt: now,
       platform: navigator.userAgent,
       phone,
     };
-    if (!existing.exists()) payload.createdAt = serverTimestamp();
+    if (!existing.exists()) payload.createdAt = now;
     else {
       const createdAt = existing.data()?.createdAt;
       if (createdAt) payload.createdAt = createdAt;
