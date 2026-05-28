@@ -16,7 +16,7 @@
 
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { doc, deleteDoc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { app, db, ensureAnonymousAuth } from './firebase';
+import { app, db } from './firebase';
 import { loggers } from '../utils/logger';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string;
@@ -74,7 +74,6 @@ export async function getNotificationToken(): Promise<string | null> {
     const phone = localStorage.getItem('lastOrderPhone');
     const tokenRef = doc(db, 'fcmTokens', token);
     try {
-      await ensureAnonymousAuth();
       const existing = await getDoc(tokenRef);
       const payload: Record<string, unknown> = {
         lastUsed: serverTimestamp(),
@@ -103,7 +102,6 @@ export async function linkNotificationTokenToPhone(token: string, phone: string)
   try {
     if (!token || !phone) return;
     const tokenRef = doc(db, 'fcmTokens', token);
-    await ensureAnonymousAuth();
     const existing = await getDoc(tokenRef);
     const payload: Record<string, unknown> = {
       lastUsed: serverTimestamp(),
