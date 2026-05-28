@@ -169,12 +169,30 @@ export async function sendPushNotification(
       });
 
       if (response.status === 410) {
-        loggers.fcm.warn('Token expirado (410). Deletando do Firestore.');
+        loggers.fcm.warn('Token expirado (410). Deletando do Firestore e tentando obter novo token.');
         try {
           await deleteDoc(doc(db, 'fcmTokens', fcmToken));
-          // [HP-04 FIX] Remove também do localStorage para evitar loop de tentativas
-          localStorage.removeItem('fcmToken');
-          loggers.fcm.info('Token removido do Firestore e localStorage.');
+          // Não remove do localStorage - tentaremos obter um novo token
+          loggers.fcm.info('Token removido do Firestore.');
+          
+          // Tenta obter um novo token automaticamente
+          try {
+            const newToken = await getNotificationToken();
+            if (newToken) {
+              loggers.fcm.info('Novo token obtido com sucesso.');
+              // Tenta enviar a notificação novamente com o novo token
+              const retryResponse = await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: newToken, ...payload }),
+              });
+              if (retryResponse.ok) {
+                return { success: true };
+              }
+            }
+          } catch (retryErr) {
+            loggers.fcm.error('Falha ao obter novo token:', retryErr);
+          }
         } catch (deleteErr) {
           loggers.fcm.error('Erro ao deletar token expirado:', deleteErr);
         }
