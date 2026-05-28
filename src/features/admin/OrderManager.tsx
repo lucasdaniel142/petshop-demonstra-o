@@ -261,17 +261,17 @@ export const OrderManager: React.FC = () => {
       console.log('[OrderManager] Token FCM do pedido:', fcmToken ? 'OK' : 'NENHUM');
       
       // [HP-05 FIX] Se o pedido não tem token, tenta buscar pelo telefone
-      // IMPORTANTE: Esta query requer índice no Firestore (fcmTokens: phone ASC, lastUsed DESC)
+      // IMPORTANTE: Esta query requer índice no Firestore (fcmTokens: phone ASC, updatedAt DESC)
       // Crie o índice em: https://console.firebase.google.com/project/_/firestore/indexes
       if (!fcmToken && order?.phone) {
         console.log('[OrderManager] Pedido sem token, buscando token pelo telefone:', order.phone);
         try {
-          // Busca o token mais recente para este telefone (ordenado por lastUsed DESC)
+          // Busca o token mais recente para este telefone (ordenado por updatedAt DESC)
           const fcmTokensSnapshot = await getDocs(
             query(
               collection(db, 'fcmTokens'), 
               where('phone', '==', order.phone),
-              orderBy('lastUsed', 'desc'),
+              orderBy('updatedAt', 'desc'),
               limit(1)
             )
           );
