@@ -1,6 +1,7 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminMessaging, getAdminAuth, getAdminDb } from './utils/firebaseAdmin.js';
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   // --- CORS CONFIGURATION ---
   const ALLOWED_ORIGIN = process.env.VITE_APP_URL || '';
@@ -54,8 +55,8 @@ export default async function handler(req, res) {
 
     // 3. Buscar todos os dispositivos cadastrados na coleção fcmTokens
     const BATCH_SIZE = 500;
-    let allTokens = [];
-    let lastDoc = null;
+    let allTokens: string[] = [];
+    let lastDoc: any = null;
     let hasMore = true;
 
     while (hasMore) {
@@ -102,7 +103,7 @@ export default async function handler(req, res) {
       failed: totalFailed
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[API Send-Promotions] Erro:', error);
     return res.status(500).json({ error: error.message || 'Erro interno' });
   }
