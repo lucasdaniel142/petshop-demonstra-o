@@ -10,7 +10,7 @@
 // =============================================================================
 
 import React, { useState } from 'react';
-import { Bell, BellOff, CheckCircle2, Loader2 } from 'lucide-react';
+import { Bell, BellOff, Loader2 } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export const SoftNotificationPrompt: React.FC = () => {
@@ -23,12 +23,7 @@ export const SoftNotificationPrompt: React.FC = () => {
 
   // ── Permissão já concedida ────────────────────────────────────────────────
   if (permission === 'granted' || justActivated) {
-    return (
-      <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-        <CheckCircle2 size={16} className="shrink-0 text-green-500" />
-        <span className="font-medium">Notificações ativas — você ser\u00E1 avisado quando o pedido sair para entrega.</span>
-      </div>
-    );
+    return null;
   }
 
   // ── Permissão bloqueada pelo usuário ─────────────────────────────────────

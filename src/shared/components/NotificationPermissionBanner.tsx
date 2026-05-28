@@ -73,7 +73,7 @@ export const NotificationPermissionBanner: React.FC = () => {
               onClick={handleDismiss}
               className="px-3 py-2 bg-white/10 text-white text-sm font-semibold rounded-lg hover:bg-white/20 transition-colors whitespace-nowrap hidden sm:block"
             >
-              Agora n\u00E3o
+              Agora Não
             </button>
             <button
               onClick={handleDismiss}

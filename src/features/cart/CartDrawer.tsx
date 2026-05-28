@@ -248,10 +248,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       const fcmToken =
         typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null;
 
-      logger.debug(
-        '[CartDrawer] Token FCM do localStorage:',
-        fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM'
-      );
+      logger.debug('[CartDrawer] Token FCM carregado do localStorage:', !!fcmToken);
 
       // Garante que fcmToken seja null se for string vazia ou inválida
       const finalFcmToken = (fcmToken && fcmToken !== 'false' && fcmToken !== 'null') ? fcmToken : null;

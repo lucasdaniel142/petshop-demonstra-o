@@ -244,14 +244,14 @@ export const NotificationPrompt: React.FC<NotificationPromptProps> = ({
               disabled={isLoading}
               className="bg-primary text-white px-4 py-1.5 rounded-full font-bold text-xs sm:text-sm hover:bg-primary-dark transition-colors shadow-sm disabled:opacity-70"
             >
-              {isLoading ? 'Ativando...' : 'Sim, avisar!'}
+              {isLoading ? 'Ativando...' : 'Sim avisar'}
             </button>
             {dismissable && (
               <button
                 onClick={handleDismiss}
                 className="text-gray-500 px-3 py-1.5 rounded-full font-medium text-xs sm:text-sm hover:bg-black/5 transition-colors"
               >
-                Agora não
+                Agora Não
               </button>
             )}
           </div>

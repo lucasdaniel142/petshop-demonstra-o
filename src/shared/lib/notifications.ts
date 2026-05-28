@@ -16,7 +16,7 @@
 
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { doc, deleteDoc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { app, db } from './firebase';
+import { app, db, ensureAnonymousAuth } from './firebase';
 import { loggers } from '../utils/logger';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string;
@@ -74,6 +74,7 @@ export async function getNotificationToken(): Promise<string | null> {
     const phone = localStorage.getItem('lastOrderPhone');
     const tokenRef = doc(db, 'fcmTokens', token);
     try {
+      await ensureAnonymousAuth();
       const existing = await getDoc(tokenRef);
       const payload: Record<string, unknown> = {
         lastUsed: serverTimestamp(),
@@ -90,7 +91,7 @@ export async function getNotificationToken(): Promise<string | null> {
       loggers.fcm.warn('Falha ao persistir token no Firestore (mantendo token local):', err);
     }
 
-    loggers.fcm.info('Token registrado com sucesso:', token.slice(0, 20) + '...');
+    loggers.fcm.info('Token registrado com sucesso.');
     return token;
   } catch (err) {
     loggers.fcm.error('Erro ao obter token de notificação:', err);
@@ -102,6 +103,7 @@ export async function linkNotificationTokenToPhone(token: string, phone: string)
   try {
     if (!token || !phone) return;
     const tokenRef = doc(db, 'fcmTokens', token);
+    await ensureAnonymousAuth();
     const existing = await getDoc(tokenRef);
     const payload: Record<string, unknown> = {
       lastUsed: serverTimestamp(),
@@ -169,7 +171,7 @@ export async function sendPushNotification(
       });
 
       if (response.status === 410) {
-        loggers.fcm.warn(`Token expirado (410). Deletando do Firestore: ${fcmToken.slice(0, 20)}...`);
+        loggers.fcm.warn('Token expirado (410). Deletando do Firestore.');
         try {
           await deleteDoc(doc(db, 'fcmTokens', fcmToken));
           // [HP-04 FIX] Remove também do localStorage para evitar loop de tentativas

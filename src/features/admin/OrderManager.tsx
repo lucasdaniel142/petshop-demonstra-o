@@ -50,14 +50,26 @@ function buildWhatsAppStatusUrl(
   phone: string,
   orderId: string,
   customerName: string,
+  statusKey: string,
   statusLabel: string,
   statusMessage: string
 ): string {
   // Array.from itera por code points (não code units), evitando corte de surrogate pairs
   const shortId = Array.from(orderId).slice(0, 8).join('');
   const formattedPhone = phone.replace(/\D/g, '');
-  const text = `Ol\u00E1 *${customerName}*! Seu pedido *#${shortId}* - ${statusLabel}.\n\n${statusMessage}`;
-  return `https://wa.me/55${formattedPhone}?text=${encodeURIComponent(text)}`;
+  const finalPhone = formattedPhone.startsWith('55') ? formattedPhone : `55${formattedPhone}`;
+  const statusEmojiMap: Record<string, string> = {
+    pending: E.BELL,
+    preparing: E.BOX,
+    shipped: E.TRUCK,
+    delivered: E.CHECK,
+    cancelled: E.CROSS,
+  };
+  const statusEmoji = statusEmojiMap[statusKey] ?? '';
+  const safeLabel = statusEmoji ? statusLabel.replace(/\uFFFD/g, statusEmoji) : statusLabel.replace(/\uFFFD/g, '');
+  const safeMessage = statusEmoji ? statusMessage.replace(/\uFFFD/g, statusEmoji) : statusMessage.replace(/\uFFFD/g, '');
+  const text = `Ol\u00E1 *${customerName}*! Seu pedido *#${shortId}* - ${safeLabel}.\n\n${safeMessage}`;
+  return `https://api.whatsapp.com/send?phone=${finalPhone}&text=${encodeURIComponent(text)}`;
 }
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -162,6 +174,7 @@ const OrderCard: React.FC<{
                 order.phone,
                 order.id,
                 order.customerName,
+                order.paymentStatus,
                 statusConfig?.label || order.paymentStatus,
                 statusConfig?.whatsappMessage || ''
               );
@@ -245,7 +258,7 @@ export const OrderManager: React.FC = () => {
       let fcmToken = (order as any).fcmToken;
       
       console.log('[OrderManager] Atualizando pedido:', orderId, 'para status:', newStatus);
-      console.log('[OrderManager] Token FCM do pedido:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'NENHUM');
+      console.log('[OrderManager] Token FCM do pedido:', fcmToken ? 'OK' : 'NENHUM');
       
       // [HP-05 FIX] Se o pedido não tem token, tenta buscar pelo telefone
       // IMPORTANTE: Esta query requer índice no Firestore (fcmTokens: phone ASC, lastUsed DESC)
@@ -265,7 +278,7 @@ export const OrderManager: React.FC = () => {
           if (!fcmTokensSnapshot.empty) {
             const tokenDoc = fcmTokensSnapshot.docs[0];
             fcmToken = tokenDoc.id;
-            console.log('[OrderManager] Token encontrado pelo telefone:', fcmToken.slice(0, 20) + '...');
+            console.log('[OrderManager] Token encontrado pelo telefone.');
           } else {
             console.log('[OrderManager] Nenhum token encontrado para o telefone:', order.phone);
           }
@@ -284,7 +297,7 @@ export const OrderManager: React.FC = () => {
         const label = STATUS_CONFIG[newStatus]?.label || newStatus;
         const idToken = await auth.currentUser?.getIdToken();
 
-        console.log('[OrderManager] Enviando notificação para token:', fcmToken.slice(0, 20) + '...');
+        console.log('[OrderManager] Enviando notificação...');
         
         try {
           const res = await fetch('/api/notify', {
