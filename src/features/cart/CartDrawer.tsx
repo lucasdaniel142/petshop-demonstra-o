@@ -135,20 +135,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           setCepError(
             `Endereço fora da área de entrega (${result.distanceKm} km). Máximo: ${DELIVERY_MAX_RADIUS_KM} km.`
           );
-        } else {
-          // Enviar notificação de promoção para o cliente após endereço ser preenchido com sucesso
-          const fcmToken = typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null;
-          if (fcmToken && fcmToken !== 'false' && fcmToken !== 'null') {
-            try {
-              await fetch('/api/send-promotion-to-client', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: fcmToken })
-              });
-            } catch (err) {
-              console.warn('[CartDrawer] Erro ao enviar notificação de promoção:', err);
-            }
-          }
         }
       } catch (_) {
         setCepError('Erro ao buscar o CEP. Tente novamente.');
