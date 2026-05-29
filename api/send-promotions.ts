@@ -60,37 +60,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('[API Send-Promotions] Documento de configurações não encontrado, usando valores padrão');
     }
 
-    // 3. Buscar tokens FCM únicos dos pedidos (mais simples que fcmTokens)
-    const ordersSnapshot = await adminDb.collection('pedidos').get();
-    const uniqueTokens = new Set<string>();
-    const uniquePhones = new Set<string>();
+    // 3. Buscar todos os dispositivos cadastrados na coleção fcmTokens
+    const BATCH_SIZE = 500;
+    let allTokens: string[] = [];
+    let lastDoc: any = null;
+    let hasMore = true;
 
-    ordersSnapshot.forEach(doc => {
-      const token = doc.data()?.fcmToken;
-      const phone = doc.data()?.customerPhone || doc.data()?.phone;
-      if (token && token !== 'null' && token !== 'false') {
-        uniqueTokens.add(token);
+    while (hasMore) {
+      let query = adminDb.collection('fcmTokens').limit(BATCH_SIZE);
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
       }
-      if (phone) {
-        uniquePhones.add(phone);
-      }
-    });
 
-    const allTokens = Array.from(uniqueTokens);
-    console.log('[API Send-Promotions] Tokens únicos encontrados nos pedidos:', allTokens.length);
-    console.log('[API Send-Promotions] Telefones únicos:', uniquePhones.size);
+      const snapshot = await query.get();
+      const batchTokens = snapshot.docs.map(doc => doc.id);
+      allTokens = allTokens.concat(batchTokens);
+
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      hasMore = batchTokens.length === BATCH_SIZE;
+    }
+
+    console.log('[API Send-Promotions] Tokens encontrados em fcmTokens:', allTokens.length);
 
     if (allTokens.length === 0) {
       return res.status(200).json({ 
         success: true, 
-        message: 'Nenhum token FCM encontrado nos pedidos.' 
+        message: 'Nenhum dispositivo inscrito. Faça um pedido para inscrever seu dispositivo.' 
       });
     }
 
-    // 4. Enviar notificações push
-    const BATCH_SIZE = 500;
-    let pushSuccess = 0;
-    let pushFailed = 0;
+    // 4. Enviar notificações em massa
+    let totalSuccess = 0;
+    let totalFailed = 0;
+    let tokensDeleted = 0;
 
     for (let i = 0; i < allTokens.length; i += BATCH_SIZE) {
       const batch = allTokens.slice(i, i + BATCH_SIZE);
@@ -104,15 +106,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       });
 
-      pushSuccess += response.successCount;
-      pushFailed += response.failureCount;
+      totalSuccess += response.successCount;
+      totalFailed += response.failureCount;
+
+      // Tratamento de erro 410 - deletar tokens inválidos
+      if (response.responses) {
+        for (let j = 0; j < response.responses.length; j++) {
+          const resp = response.responses[j];
+          if (resp.error) {
+            const errorCode = resp.error.code;
+            if (errorCode === 'messaging/registration-token-not-registered' ||
+                errorCode === 'messaging/invalid-registration-token') {
+              const invalidToken = batch[j];
+              try {
+                await adminDb.collection('fcmTokens').doc(invalidToken).delete();
+                tokensDeleted++;
+                console.log(`[API Send-Promotions] Token inválido removido: ${invalidToken}`);
+              } catch (deleteErr) {
+                console.error(`[API Send-Promotions] Erro ao deletar token ${invalidToken}:`, deleteErr);
+              }
+            }
+          }
+        }
+      }
     }
 
     return res.status(200).json({
       success: true,
-      sent: pushSuccess,
-      failed: pushFailed,
-      totalClients: uniquePhones.size
+      sent: totalSuccess,
+      failed: totalFailed,
+      tokensDeleted
     });
 
   } catch (error: any) {
