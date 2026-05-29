@@ -102,7 +102,11 @@ export async function getNotificationToken(): Promise<string | null> {
 
 export async function linkNotificationTokenToPhone(token: string, phone: string): Promise<void> {
   try {
-    if (!token || !phone) return;
+    if (!token || !phone) {
+      console.warn('[linkNotificationTokenToPhone] Token ou phone vazio:', { token: !!token, phone: !!phone });
+      return;
+    }
+    console.log('[linkNotificationTokenToPhone] Salvando token no Firestore:', { token: token.substring(0, 20) + '...', phone });
     const tokenRef = doc(db, 'fcmTokens', token);
     const existing = await getDoc(tokenRef);
     const now = new Date().toISOString();
@@ -118,7 +122,9 @@ export async function linkNotificationTokenToPhone(token: string, phone: string)
       if (createdAt) payload.createdAt = createdAt;
     }
     await setDoc(tokenRef, payload);
+    console.log('[linkNotificationTokenToPhone] Token salvo com sucesso no Firestore');
   } catch (err) {
+    console.error('[linkNotificationTokenToPhone] Falha ao vincular token ao telefone:', err);
     loggers.fcm.warn('Falha ao vincular token ao telefone:', err);
   }
 }
