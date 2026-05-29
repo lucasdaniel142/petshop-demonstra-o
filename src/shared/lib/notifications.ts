@@ -45,33 +45,46 @@ export async function requestPermission(): Promise<NotificationPermission> {
 // ---------------------------------------------------------------------------
 export async function getNotificationToken(): Promise<string | null> {
   try {
+    console.log('[getNotificationToken] Iniciando obtenção de token FCM');
     const supported = await isSupported();
     if (!supported) {
+      console.warn('[getNotificationToken] Firebase Messaging não suportado neste navegador.');
       loggers.fcm.info('Firebase Messaging não suportado neste navegador.');
       return null;
     }
 
+    console.log('[getNotificationToken] Firebase Messaging suportado');
+    console.log('[getNotificationToken] Permissão de notificação:', Notification.permission);
+
     if (Notification.permission !== 'granted') {
+      console.warn('[getNotificationToken] Permissão não concedida:', Notification.permission);
       loggers.fcm.warn('getNotificationToken chamado sem permissão concedida.');
       return null;
     }
 
+    console.log('[getNotificationToken] Obtendo messaging instance');
     const messaging = getMessaging(app);
     const swRegistration =
       'serviceWorker' in navigator ? await navigator.serviceWorker.ready : undefined;
+    console.log('[getNotificationToken] Service Worker:', swRegistration ? 'OK' : 'N/A');
+
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       ...(swRegistration ? { serviceWorkerRegistration: swRegistration } : {}),
     });
 
     if (!token) {
+      console.warn('[getNotificationToken] Token vazio retornado pelo SDK.');
       loggers.fcm.warn('Token vazio retornado pelo SDK.');
       return null;
     }
 
+    console.log('[getNotificationToken] Token obtido:', token.substring(0, 20) + '...');
     localStorage.setItem('fcmToken', token);
 
     const phone = localStorage.getItem('lastOrderPhone');
+    console.log('[getNotificationToken] Telefone do último pedido:', phone || 'N/A');
+
     const tokenRef = doc(db, 'fcmTokens', token);
     try {
       const existing = await getDoc(tokenRef);
@@ -88,13 +101,17 @@ export async function getNotificationToken(): Promise<string | null> {
         if (createdAt) payload.createdAt = createdAt;
       }
       await setDoc(tokenRef, payload);
+      console.log('[getNotificationToken] Token salvo no Firestore com sucesso');
     } catch (err) {
+      console.error('[getNotificationToken] Falha ao persistir token no Firestore:', err);
       loggers.fcm.warn('Falha ao persistir token no Firestore (mantendo token local):', err);
     }
 
+    console.log('[getNotificationToken] Token registrado com sucesso');
     loggers.fcm.info('Token registrado com sucesso.');
     return token;
   } catch (err) {
+    console.error('[getNotificationToken] Erro ao obter token de notificação:', err);
     loggers.fcm.error('Erro ao obter token de notificação:', err);
     return null;
   }
