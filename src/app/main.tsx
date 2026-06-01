@@ -7,8 +7,7 @@ import { logger } from '../shared/utils/logger';
 // [FIX-SW-REGISTER] Registra o firebase-messaging-sw.js e aguarda .ready
 // antes de montar o React. Isso garante que quando getNotificationToken()
 // for chamado pela primeira vez, o SW já está ativo e controlando a página.
-// O padrão anterior registrava o SW sem await e montava o React em paralelo,
-// causando getToken() a falhar com "No active service worker".
+// Timeout de 4s para não bloquear o app em dispositivos lentos/mobile.
 async function registerFirebaseServiceWorker(): Promise<void> {
   if (!('serviceWorker' in navigator)) return;
 
@@ -29,8 +28,15 @@ async function registerFirebaseServiceWorker(): Promise<void> {
     );
 
     await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    // Aguarda o SW ficar ativo (necessário para getToken funcionar)
-    await navigator.serviceWorker.ready;
+
+    // Aguarda o SW ficar ativo com timeout de 4s.
+    // No mobile (Android PWA), o SW pode demorar para ativar na primeira vez.
+    // Sem timeout, o app ficaria bloqueado indefinidamente se o SW travar.
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+    ]);
+
     logger.info('Firebase Messaging Service Worker registrado e ativo.');
   } catch (error) {
     // Não bloqueia a aplicação se o SW falhar — push não funcionará,

@@ -1,7 +1,7 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-const CACHE_NAME = 'ecommerce-v3';
+const CACHE_NAME = 'ecommerce-v4';
 const STATIC_ASSETS = ['/', '/manifest.json', '/logo.png', '/icons/icon-sagrada-familia-app.png'];
 
 self.addEventListener('install', (event) => {
@@ -59,90 +59,112 @@ const firebaseConfig = {
   appId: "1:748039006363:web:f318f33b15992792427e3e"
 };
 
+// ---------------------------------------------------------------------------
+// Inicializa Firebase Messaging (compat)
+// ---------------------------------------------------------------------------
 try {
   if (firebaseConfig.apiKey) {
     firebase.initializeApp(firebaseConfig);
     const messaging = firebase.messaging();
 
+    // onBackgroundMessage é chamado pelo SDK quando o app está em background
+    // e o payload é data-only (sem campo `notification`).
+    // Para payloads COM `notification`, o SDK compat delega ao evento `push`
+    // nativo — por isso também interceptamos o evento `push` diretamente abaixo.
     messaging.onBackgroundMessage((payload) => {
-      console.log('[firebase-messaging-sw.js] Mensagem recebida em background:', payload);
-
-      // [FIX-DUPLICATE] Quando o payload contém `notification` (ou
-      // `webpush.notification`), o navegador/Web Push já exibe a notificação
-      // nativa automaticamente. Se chamarmos showNotification aqui, o usuário
-      // recebe DUAS notificações (especialmente no Android Chrome). Portanto,
-      // só mostramos manualmente quando a mensagem é data-only.
-      const hasNotificationPayload =
-        !!payload.notification ||
-        !!payload?.webpush?.notification;
-
-      if (hasNotificationPayload) {
-        console.log('[firebase-messaging-sw.js] Notificação nativa será exibida pelo navegador. Pulando showNotification para evitar duplicação.');
-        return;
-      }
-
-      // Apenas para mensagens data-only (sem `notification`), o SW precisa
-      // criar a notificação manualmente.
-      const notificationTitle =
-        payload.data?.title ||
-        'Supermercado Sagrada Família';
-
-      const notificationBody =
-        payload.data?.body ||
-        'Nova atualização disponível';
-
-      const clickUrl =
-        payload.data?.link ||
-        payload.fcmOptions?.link ||
-        '/';
-
-      const notificationOptions = {
-        body: notificationBody,
-        icon: payload.data?.icon || '/icons/icon-sagrada-familia-app.png',
-        badge: '/icons/icon-192.png',
-        vibrate: [200, 100, 200],
-        tag: 'sagrada-familia-notification',
-        requireInteraction: false,
-        silent: false,
-        data: {
-          url: clickUrl,
-          click_action: clickUrl,
-        },
-        actions: [
-          {
-            action: 'open',
-            title: 'Abrir',
-            icon: '/icons/icon-192.png',
-          },
-        ],
-      };
-
-      return self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-
-    self.addEventListener('notificationclick', (event) => {
-      console.log('[firebase-messaging-sw.js] Notification clicked', event);
-
-      event.notification.close();
-
-      const urlToOpen = event.notification.data?.url || event.notification.data?.click_action || '/';
-
-      event.waitUntil(
-        self.clients
-          .matchAll({ type: 'window', includeUncontrolled: true })
-          .then((clientList) => {
-            for (const client of clientList) {
-              if (client.url === urlToOpen && 'focus' in client) {
-                return client.focus();
-              }
-            }
-            if (self.clients.openWindow) {
-              return self.clients.openWindow(urlToOpen);
-            }
-          })
-      );
+      console.log('[SW] onBackgroundMessage:', JSON.stringify(payload));
+      // Deixa o handler `push` abaixo cuidar da exibição para evitar duplicação.
+      // Este callback apenas garante que o SDK não suprima o evento push.
     });
   }
 } catch (e) {
-  console.warn('[firebase-messaging-sw.js] FCM Background indisponível sem configuração.', e);
+  console.warn('[SW] FCM init error:', e);
 }
+
+// ---------------------------------------------------------------------------
+// Evento `push` nativo — mais confiável no Chrome Desktop/Windows
+// ---------------------------------------------------------------------------
+// O SDK Firebase compat registra seu próprio listener de `push`, mas quando
+// o payload contém `notification`, ele pode suprimir o showNotification em
+// alguns ambientes (especialmente Chrome no Windows com o app em background).
+// Ao interceptar o evento `push` diretamente com `event.waitUntil`, garantimos
+// que a notificação sempre aparece no SO.
+// ---------------------------------------------------------------------------
+self.addEventListener('push', (event) => {
+  console.log('[SW] push event recebido');
+
+  let payload = {};
+  try {
+    if (event.data) {
+      payload = event.data.json();
+    }
+  } catch (e) {
+    console.warn('[SW] Falha ao parsear payload do push:', e);
+  }
+
+  console.log('[SW] push payload:', JSON.stringify(payload));
+
+  // Extrai título e corpo de qualquer estrutura de payload FCM
+  const title =
+    payload.notification?.title ||
+    payload.data?.title ||
+    'Supermercado Sagrada Família';
+
+  const body =
+    payload.notification?.body ||
+    payload.data?.body ||
+    'Nova atualização disponível';
+
+  const icon =
+    payload.data?.icon ||
+    payload.notification?.icon ||
+    '/icons/icon-sagrada-familia-app.png';
+
+  const clickUrl =
+    payload.fcmOptions?.link ||
+    payload.data?.link ||
+    '/';
+
+  const options = {
+    body,
+    icon,
+    badge: '/icons/icon-192.png',
+    vibrate: [200, 100, 200],
+    // tag fixo: substitui notificação anterior em vez de empilhar
+    tag: 'sagrada-familia-notification',
+    renotify: true,
+    requireInteraction: false,
+    silent: false,
+    data: { url: clickUrl },
+    actions: [{ action: 'open', title: 'Abrir' }],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Clique na notificação
+// ---------------------------------------------------------------------------
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] notificationclick:', event.action);
+  event.notification.close();
+
+  const urlToOpen = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(urlToOpen);
+        }
+      })
+  );
+});

@@ -110,6 +110,21 @@ export const SettingsManager: React.FC = () => {
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error('Não autenticado');
 
+      // Diagnóstico: verifica quantos tokens existem antes de enviar
+      let tokenCount = '?';
+      try {
+        const diagRes = await fetch('/api/admin/debug-tokens', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (diagRes.ok) {
+          const diagData = await diagRes.json();
+          tokenCount = String(diagData.total ?? '?');
+          console.log('[SettingsManager] Tokens no Firestore:', diagData.total, diagData.tokens);
+        }
+      } catch (diagErr) {
+        console.warn('[SettingsManager] Diagnóstico falhou:', diagErr);
+      }
+
       const response = await fetch('/api/send-promotions', {
         method: 'POST',
         headers: {
@@ -125,19 +140,19 @@ export const SettingsManager: React.FC = () => {
         const deleted = Number(data.tokensDeleted ?? 0);
 
         // Sem inscritos
-        if (sent === 0 && failed === 0 && data.message) {
-          const msg = String(data.message);
+        if (sent === 0 && failed === 0) {
+          const msg = data.message || 'Nenhum dispositivo inscrito para receber notificações.';
           window.dispatchEvent(new CustomEvent('app-toast', {
-            detail: { title: msg, type: 'info', duration: 5000 }
+            detail: { title: `⚠️ ${msg} (tokens no DB: ${tokenCount})`, type: 'info', duration: 8000 }
           }));
-          setError(msg);
+          setError(`${msg} — Tokens encontrados no Firestore: ${tokenCount}`);
         } else {
           // Sucesso com detalhes
-          const summary = `Notificações enviadas: ${sent}` +
+          const summary = `📢 Notificações enviadas: ${sent}` +
             (failed > 0 ? ` • Falharam: ${failed}` : '') +
             (deleted > 0 ? ` • Tokens inválidos removidos: ${deleted}` : '');
           window.dispatchEvent(new CustomEvent('app-toast', {
-            detail: { title: '📢 ' + summary, type: 'success', duration: 6000 }
+            detail: { title: summary, type: 'success', duration: 6000 }
           }));
           setSuccess(true);
           setTimeout(() => setSuccess(false), 5000);
@@ -145,7 +160,7 @@ export const SettingsManager: React.FC = () => {
       } else {
         const msg = data.error || `Erro ${response.status} ao enviar notificações`;
         window.dispatchEvent(new CustomEvent('app-toast', {
-          detail: { title: msg, type: 'error', duration: 6000 }
+          detail: { title: '❌ ' + msg, type: 'error', duration: 6000 }
         }));
         setError(msg);
       }

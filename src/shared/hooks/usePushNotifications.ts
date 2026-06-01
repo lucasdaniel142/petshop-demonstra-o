@@ -54,16 +54,42 @@ function initForegroundListenerOnce() {
         payload.data?.body ||
         undefined;
 
+      // Toast interno do app (sempre)
       emitAppToast({
         title,
         description: body,
         type: 'info',
         duration: 6000,
       });
+
+      // [FIX-FOREGROUND-POPUP] Exibe popup nativo do SO mesmo com a aba aberta.
+      // O SW só recebe mensagens em background; quando o app está em foreground
+      // o FCM entrega ao onMessage e o popup do sistema NÃO aparece automaticamente.
+      // Chamamos a API Notification diretamente para mostrar o popup nativo.
+      if (Notification.permission === 'granted') {
+        try {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(title, {
+              body,
+              icon: '/icons/icon-sagrada-familia-app.png',
+              badge: '/icons/icon-192.png',
+              tag: 'sagrada-familia-fg',
+              silent: false,
+            } as NotificationOptions);
+          }).catch(() => {
+            // Fallback: Notification API direta (sem SW)
+            new Notification(title, {
+              body,
+              icon: '/icons/icon-sagrada-familia-app.png',
+            });
+          });
+        } catch (e) {
+          logger.debug('[FCM] Não foi possível exibir popup nativo em foreground:', e);
+        }
+      }
     });
   });
 }
-
 export function usePushNotifications() {
   const [token, setToken] = useState<string | null>(() =>
     typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null

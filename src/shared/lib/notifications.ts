@@ -30,16 +30,13 @@ export async function requestPermission(): Promise<NotificationPermission> {
 // ---------------------------------------------------------------------------
 // getNotificationToken
 // [FIX-AUTH]      Chama ensureAnonymousAuth() antes de gravar no Firestore.
-//                 Sem isso, as regras de segurança rejeitam a gravação se o
-//                 usuário não está autenticado.
-// [FIX-MESSAGING] Usa getMessagingPromise() ao invés de getMessaging(app)
-//                 diretamente, garantindo que a instância está pronta.
+// [FIX-MESSAGING] Usa getMessagingPromise() para garantir instância pronta.
+// [FIX-MOBILE]    Retry com backoff para aguardar SW ativo no Android/PWA.
 // ---------------------------------------------------------------------------
 export async function getNotificationToken(): Promise<string | null> {
   try {
     console.log('[getNotificationToken] Iniciando obtenção de token FCM');
 
-    // [FIX-MESSAGING] Aguarda a Promise em vez de usar a instância síncrona
     const messaging = await getMessagingPromise();
     if (!messaging) {
       console.warn('[getNotificationToken] Firebase Messaging não suportado neste navegador.');
@@ -56,16 +53,32 @@ export async function getNotificationToken(): Promise<string | null> {
       return null;
     }
 
-    // [FIX-SW] Aguarda o SW estar ativo antes de obter o token.
-    // Sem isso, getToken pode falhar silenciosamente pois o SW ainda não
-    // controla a página.
+    // [FIX-MOBILE] Aguarda SW com retry + backoff.
+    // No Android Chrome e PWAs instalados, o SW pode levar alguns segundos
+    // para ativar após a instalação. Sem retry, getToken falha silenciosamente
+    // retornando string vazia, e o token nunca é salvo no Firestore.
     let swRegistration: ServiceWorkerRegistration | undefined;
     if ('serviceWorker' in navigator) {
-      try {
-        swRegistration = await navigator.serviceWorker.ready;
-        console.log('[getNotificationToken] Service Worker pronto:', swRegistration.active?.scriptURL);
-      } catch (swErr) {
-        console.warn('[getNotificationToken] Falha ao obter SW ready:', swErr);
+      const MAX_SW_RETRIES = 3;
+      for (let attempt = 1; attempt <= MAX_SW_RETRIES; attempt++) {
+        try {
+          swRegistration = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('SW ready timeout')), 5000)
+            ),
+          ]) as ServiceWorkerRegistration;
+          console.log(`[getNotificationToken] SW pronto (tentativa ${attempt}):`, swRegistration.active?.scriptURL);
+          break;
+        } catch (swErr) {
+          console.warn(`[getNotificationToken] SW não pronto (tentativa ${attempt}/${MAX_SW_RETRIES}):`, swErr);
+          if (attempt < MAX_SW_RETRIES) {
+            await new Promise(r => setTimeout(r, 1000 * attempt)); // backoff: 1s, 2s
+          }
+        }
+      }
+      if (!swRegistration) {
+        console.warn('[getNotificationToken] SW não ficou pronto. Tentando sem SW...');
       }
     }
 
@@ -75,7 +88,7 @@ export async function getNotificationToken(): Promise<string | null> {
     });
 
     if (!token) {
-      console.warn('[getNotificationToken] Token vazio retornado pelo SDK.');
+      console.warn('[getNotificationToken] Token vazio retornado pelo SDK. Verifique VITE_FIREBASE_VAPID_KEY e o registro do SW.');
       loggers.fcm.warn('Token vazio retornado pelo SDK.');
       return null;
     }
@@ -86,12 +99,10 @@ export async function getNotificationToken(): Promise<string | null> {
     const phone = localStorage.getItem('lastOrderPhone');
 
     // [FIX-AUTH] Garante autenticação anônima antes de gravar no Firestore.
-    // Sem autenticação, as regras de segurança do Firestore rejeitam a escrita.
     try {
       await ensureAnonymousAuth();
     } catch (authErr) {
       console.warn('[getNotificationToken] Falha na autenticação anônima:', authErr);
-      // Continua mesmo sem autenticação (token fica apenas no localStorage)
     }
 
     const tokenRef = doc(db, 'fcmTokens', token);

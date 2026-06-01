@@ -81,11 +81,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log('[API Send-Promotions] Tokens encontrados em fcmTokens:', allTokens.length);
+    // Log parcial dos tokens para diagnóstico (apenas primeiros 20 chars de cada)
+    if (allTokens.length > 0) {
+      console.log('[API Send-Promotions] Amostra de tokens:', allTokens.slice(0, 3).map(t => t.substring(0, 20) + '...'));
+    }
 
     if (allTokens.length === 0) {
       return res.status(200).json({ 
-        success: true, 
-        message: 'Nenhum dispositivo inscrito. Faça um pedido para inscrever seu dispositivo.' 
+        success: true,
+        sent: 0,
+        failed: 0,
+        tokensDeleted: 0,
+        message: 'Nenhum dispositivo inscrito para receber notificações.' 
       });
     }
 
@@ -128,21 +135,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       totalSuccess += response.successCount;
       totalFailed += response.failureCount;
 
-      // Tratamento de erro 410 - deletar tokens inválidos
+      console.log(`[API Send-Promotions] Lote ${Math.floor(i / BATCH_SIZE) + 1}: sucesso=${response.successCount}, falha=${response.failureCount}`);
+
+      // Tratamento de erros individuais por token
       if (response.responses) {
         for (let j = 0; j < response.responses.length; j++) {
           const resp = response.responses[j];
           if (resp.error) {
             const errorCode = resp.error.code;
+            console.warn(`[API Send-Promotions] Erro no token[${j}]: ${errorCode} — ${resp.error.message}`);
             if (errorCode === 'messaging/registration-token-not-registered' ||
                 errorCode === 'messaging/invalid-registration-token') {
               const invalidToken = batch[j];
               try {
                 await adminDb.collection('fcmTokens').doc(invalidToken).delete();
                 tokensDeleted++;
-                console.log(`[API Send-Promotions] Token inválido removido: ${invalidToken}`);
+                console.log(`[API Send-Promotions] Token inválido removido: ${invalidToken.substring(0, 20)}...`);
               } catch (deleteErr) {
-                console.error(`[API Send-Promotions] Erro ao deletar token ${invalidToken}:`, deleteErr);
+                console.error(`[API Send-Promotions] Erro ao deletar token:`, deleteErr);
               }
             }
           }
