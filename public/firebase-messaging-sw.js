@@ -19,6 +19,7 @@ self.addEventListener('activate', (event) => {
   );
   event.waitUntil(self.clients.claim());
 });
+
 self.addEventListener('fetch', (event) => {
   if (
     event.request.url.includes('firestore.googleapis.com') ||
@@ -48,13 +49,6 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request).then((r) => r || new Response('Offline', { status: 503 })))
   );
 });
-// A Firebase config real precisará ser passada de alguma forma.
-// O approach mais simples em templates white-label é exigir
-// que o cliente cole a config aqui também se for usar push.
-// Mas para evitar que o cliente mexa no código, podemos carregar de uma API
-// ou apenas usar o onBackgroundMessage genérico e deixar a injeção via vite-plugin-pwa,
-// ou simplesmente deixar comentado e documentado.
-
 
 const firebaseConfig = {
   apiKey: "AIzaSyD8uwYVG34wf5m0BlbFOf6_Dmdlh0lqGs4",
@@ -66,51 +60,56 @@ const firebaseConfig = {
 };
 
 try {
-  // Só inicializa se o cliente configurou o arquivo acima
   if (firebaseConfig.apiKey) {
     firebase.initializeApp(firebaseConfig);
     const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
-      console.log('[firebase-messaging-sw.js] Mensagem recebida em background ', payload);
+      console.log('[firebase-messaging-sw.js] Mensagem recebida em background:', payload);
 
+      // [FIX-BGMSG] Suporta tanto mensagens notification+data quanto data-only.
+      // Quando o servidor envia apenas `data` (sem `notification`), o FCM não
+      // gera notificação nativa automaticamente — o SW precisa fazê-lo manualmente.
       const notificationTitle =
         payload.notification?.title ||
         payload.data?.title ||
         'Supermercado Sagrada Família';
+
+      const notificationBody =
+        payload.notification?.body ||
+        payload.data?.body ||
+        'Nova atualização disponível';
+
+      const clickUrl =
+        payload.data?.link ||
+        payload.fcmOptions?.link ||
+        payload.webpush?.fcmOptions?.link ||
+        '/';
+
       const notificationOptions = {
-        body: payload.notification?.body || payload.data?.body || 'Nova atualização disponível',
-        icon: '/icons/icon-sagrada-familia-app.png',
+        body: notificationBody,
+        icon: payload.data?.icon || '/icons/icon-sagrada-familia-app.png',
         badge: '/icons/icon-192.png',
         vibrate: [200, 100, 200],
         tag: 'sagrada-familia-notification',
         requireInteraction: false,
         silent: false,
         data: {
-          url:
-            payload.data?.link ||
-            payload.fcmOptions?.link ||
-            payload.webpush?.fcmOptions?.link ||
-            '/',
-          click_action:
-            payload.data?.link ||
-            payload.fcmOptions?.link ||
-            payload.webpush?.fcmOptions?.link ||
-            '/',
+          url: clickUrl,
+          click_action: clickUrl,
         },
         actions: [
           {
             action: 'open',
             title: 'Abrir',
-            icon: '/icons/icon-192.png'
-          }
+            icon: '/icons/icon-192.png',
+          },
         ],
       };
 
       return self.registration.showNotification(notificationTitle, notificationOptions);
     });
 
-    // Handle notification clicks
     self.addEventListener('notificationclick', (event) => {
       console.log('[firebase-messaging-sw.js] Notification clicked', event);
 
@@ -119,15 +118,14 @@ try {
       const urlToOpen = event.notification.data?.url || event.notification.data?.click_action || '/';
 
       event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        self.clients
+          .matchAll({ type: 'window', includeUncontrolled: true })
           .then((clientList) => {
-            // Check if there's already a window open
             for (const client of clientList) {
               if (client.url === urlToOpen && 'focus' in client) {
                 return client.focus();
               }
             }
-            // If no window is open, open a new one
             if (self.clients.openWindow) {
               return self.clients.openWindow(urlToOpen);
             }

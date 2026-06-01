@@ -32,6 +32,7 @@ import { Link } from 'react-router-dom';
 import { SoftNotificationPrompt } from '../../shared/components/SoftNotificationPrompt';
 import { formatCurrency } from '../../shared/utils/currency';
 import { linkNotificationTokenToPhone } from '../../shared/lib/notifications';
+import { ensureAnonymousAuth } from '../../shared/lib/firebase';
 
 // ---------------------------------------------------------------------------
 // [FIX-3] Leitura segura do threshold de frete grátis por valor
@@ -256,6 +257,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       if (!finalFcmToken) {
         console.warn('[CartDrawer] Token FCM inválido ou não encontrado');
       } else {
+        // [FIX-AUTH] Garante autenticação anônima antes de vincular token
+        try { await ensureAnonymousAuth(); } catch {}
         await linkNotificationTokenToPhone(finalFcmToken, cleanPhone);
       }
 

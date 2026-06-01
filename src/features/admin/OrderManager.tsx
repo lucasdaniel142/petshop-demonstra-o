@@ -87,6 +87,11 @@ const FILTER_OPTIONS = [
   { id: 'delivered', label: 'Entregues' },
 ];
 
+function emitAdminToast(title: string, type: 'success' | 'error' | 'info' = 'info') {
+  const event = new CustomEvent('app-toast', { detail: { title, type, duration: 4000 } });
+  window.dispatchEvent(event);
+}
+
 function escapeHtml(raw: string): string {
   return raw
     .replace(/&/g, '&amp;')
@@ -336,10 +341,13 @@ export const OrderManager: React.FC = () => {
             }
           } else {
             console.log('[OrderManager] Notificação enviada com sucesso!');
+            emitAdminToast('📲 Notificação enviada ao cliente!', 'success');
           }
         } catch (e) {
           console.warn('[notify] Falha na requisição:', e);
         }
+      } else {
+        console.warn('[OrderManager] Sem token FCM — cliente não ativou notificações push.');
       }
     } catch (err) {
       console.error('[OrderManager] Erro ao atualizar status:', err);

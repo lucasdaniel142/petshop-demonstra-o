@@ -2,13 +2,15 @@
 // usePushNotifications.ts
 // Hook para gerenciar o ciclo de vida das notificações push (Soft Prompt).
 //
-// NÃO solicita permissão automaticamente. A permissão só é pedida quando
-// o usuário clica explicitamente em um botão de opt-in.
+// [FIX-FOREGROUND] Usa getMessagingPromise() para garantir que a instância
+//   de Messaging está pronta antes de registrar o listener onMessage.
+//   O padrão anterior usava getFirebaseMessaging() (síncrono), que retornava
+//   null frequentemente pois a Promise de isSupported() ainda não tinha resolvido.
 // =============================================================================
 
 import { useState, useEffect, useRef } from 'react';
 import { onMessage } from 'firebase/messaging';
-import { getFirebaseMessaging } from '../lib/firebase';
+import { getMessagingPromise } from '../lib/firebase';
 import { requestPermission, getNotificationToken } from '../lib/notifications';
 import { logger } from '../utils/logger';
 
@@ -38,6 +40,7 @@ export function usePushNotifications() {
     }
   }, []);
 
+  // Se já tinha permissão concedida, sincroniza o token
   useEffect(() => {
     if (permission !== 'granted') return;
     if (didSyncTokenRef.current) return;
@@ -47,30 +50,45 @@ export function usePushNotifications() {
     });
   }, [permission]);
 
-  // Escuta mensagens em foreground e exibe toast
+  // [FIX-FOREGROUND] Aguarda Messaging estar pronta antes de registrar onMessage
   useEffect(() => {
-    const messaging = getFirebaseMessaging();
-    if (!messaging) return;
+    let unsubscribe: (() => void) | null = null;
 
-    const unsubscribe = onMessage(messaging, (payload) => {
-      if (payload.notification) {
-        logger.debug('[FCM] Mensagem foreground recebida:', payload.notification);
+    getMessagingPromise().then((messaging) => {
+      if (!messaging) return;
+
+      unsubscribe = onMessage(messaging, (payload) => {
+        logger.debug('[FCM] Mensagem foreground recebida:', payload);
+
+        // [FIX-PAYLOAD] api/notify.ts envia campos em `data`, não em `notification`.
+        // O SDK web não gera notificação nativa no foreground automaticamente
+        // (comportamento correto: o app está aberto). Exibimos um toast.
+        const title =
+          payload.notification?.title ||
+          payload.data?.title ||
+          'Nova atualização';
+        const body =
+          payload.notification?.body ||
+          payload.data?.body ||
+          undefined;
+
         emitAppToast({
-          title: payload.notification.title || 'Nova atualização',
-          description: payload.notification.body || undefined,
+          title,
+          description: body,
           type: 'info',
           duration: 6000,
         });
-      }
+      });
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // ---------------------------------------------------------------------------
   // requestPermissionAndGetToken
   // Deve ser chamado APENAS em resposta a um gesto explícito do usuário.
-  // Retorna o token se bem-sucedido, null caso contrário.
   // ---------------------------------------------------------------------------
   const requestPermissionAndGetToken = async (): Promise<string | null> => {
     if (!('Notification' in window)) {

@@ -37,17 +37,28 @@ export const db = initializeFirestore(app, {
 });
 export const auth = getAuth(app);
 
-let messagingInstance: ReturnType<typeof getMessaging> | null = null;
-isSupported().then((supported) => {
-  if (supported) {
-    messagingInstance = getMessaging(app);
-    // O handler de mensagens foreground é registrado pelo usePushNotifications,
-    // que exibe um toast visual na UI. Não registramos onMessage aqui para
-    // evitar notificações nativas duplicadas ou inesperadas ao ativar o token.
-  }
-});
+// [FIX-MESSAGING-RACE] Expõe uma Promise que resolve com a instância de
+// messaging (ou null se não suportado). Substituímos o padrão anterior que
+// usava uma variável `messagingInstance` preenchida de forma assíncrona —
+// código que consumia `getFirebaseMessaging()` sincronicamente obtinha null.
+let _messagingInstance: ReturnType<typeof getMessaging> | null = null;
+let _messagingPromise: Promise<ReturnType<typeof getMessaging> | null> | null = null;
 
-export const getFirebaseMessaging = () => messagingInstance;
+export function getMessagingPromise(): Promise<ReturnType<typeof getMessaging> | null> {
+  if (_messagingPromise) return _messagingPromise;
+  _messagingPromise = isSupported().then((supported) => {
+    if (supported) {
+      _messagingInstance = getMessaging(app);
+      return _messagingInstance;
+    }
+    return null;
+  });
+  return _messagingPromise;
+}
+
+// Mantido por compatibilidade — retorna null se a Promise ainda não resolveu.
+// Prefira `getMessagingPromise()` em novos usos.
+export const getFirebaseMessaging = () => _messagingInstance;
 
 /**
  * Garante `request.auth != null` nas regras do Firestore (ex.: `fcmTokens`)

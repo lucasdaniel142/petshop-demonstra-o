@@ -3,31 +3,21 @@
 // =============================================================================
 // API de notificações push seguindo o padrão "Soft Prompt":
 //
-//   requestPermission()   — pede permissão ao navegador (chame APENAS em resposta
-//                           a um gesto explícito do usuário, nunca no carregamento).
-//   getNotificationToken() — obtém o token FCM assumindo que a permissão já foi
-//                            concedida. Não chama requestPermission internamente.
-//   requestNotificationToken() — helper legado: pede permissão + obtém token em
-//                                uma única chamada. Mantido para compatibilidade
-//                                com usePushNotifications.ts.
-//   sendPushNotification() — envia push via API server-side com retry e limpeza
-//                            automática de token 410.
+//   requestPermission()    — pede permissão ao navegador (apenas por gesto).
+//   getNotificationToken() — obtém token FCM (permissão já concedida).
+//   requestNotificationToken() — helper legado: pede permissão + token.
+//   sendPushNotification() — envia push via API server-side com retry.
 // =============================================================================
 
-import { getMessaging, getToken, isSupported } from 'firebase/messaging';
-import { doc, deleteDoc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { app, db } from './firebase';
+import { getToken } from 'firebase/messaging';
+import { doc, deleteDoc, getDoc, setDoc } from 'firebase/firestore';
+import { app, db, ensureAnonymousAuth, getMessagingPromise } from './firebase';
 import { loggers } from '../utils/logger';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string;
 
 // ---------------------------------------------------------------------------
 // requestPermission
-// Solicita permissão de notificação ao navegador.
-// Deve ser chamada APENAS em resposta a um gesto explícito do usuário
-// (clique em botão), nunca automaticamente no carregamento da página.
-//
-// Retorna o estado da permissão após a solicitação.
 // ---------------------------------------------------------------------------
 export async function requestPermission(): Promise<NotificationPermission> {
   if (!('Notification' in window)) {
@@ -39,15 +29,19 @@ export async function requestPermission(): Promise<NotificationPermission> {
 
 // ---------------------------------------------------------------------------
 // getNotificationToken
-// Obtém o token FCM assumindo que a permissão já foi concedida.
-// Salva o token no Firestore (fcmTokens/{token}) e no localStorage.
-// Retorna null se não suportado, permissão não concedida ou em caso de erro.
+// [FIX-AUTH]      Chama ensureAnonymousAuth() antes de gravar no Firestore.
+//                 Sem isso, as regras de segurança rejeitam a gravação se o
+//                 usuário não está autenticado.
+// [FIX-MESSAGING] Usa getMessagingPromise() ao invés de getMessaging(app)
+//                 diretamente, garantindo que a instância está pronta.
 // ---------------------------------------------------------------------------
 export async function getNotificationToken(): Promise<string | null> {
   try {
     console.log('[getNotificationToken] Iniciando obtenção de token FCM');
-    const supported = await isSupported();
-    if (!supported) {
+
+    // [FIX-MESSAGING] Aguarda a Promise em vez de usar a instância síncrona
+    const messaging = await getMessagingPromise();
+    if (!messaging) {
       console.warn('[getNotificationToken] Firebase Messaging não suportado neste navegador.');
       loggers.fcm.info('Firebase Messaging não suportado neste navegador.');
       return null;
@@ -62,11 +56,18 @@ export async function getNotificationToken(): Promise<string | null> {
       return null;
     }
 
-    console.log('[getNotificationToken] Obtendo messaging instance');
-    const messaging = getMessaging(app);
-    const swRegistration =
-      'serviceWorker' in navigator ? await navigator.serviceWorker.ready : undefined;
-    console.log('[getNotificationToken] Service Worker:', swRegistration ? 'OK' : 'N/A');
+    // [FIX-SW] Aguarda o SW estar ativo antes de obter o token.
+    // Sem isso, getToken pode falhar silenciosamente pois o SW ainda não
+    // controla a página.
+    let swRegistration: ServiceWorkerRegistration | undefined;
+    if ('serviceWorker' in navigator) {
+      try {
+        swRegistration = await navigator.serviceWorker.ready;
+        console.log('[getNotificationToken] Service Worker pronto:', swRegistration.active?.scriptURL);
+      } catch (swErr) {
+        console.warn('[getNotificationToken] Falha ao obter SW ready:', swErr);
+      }
+    }
 
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
@@ -83,7 +84,15 @@ export async function getNotificationToken(): Promise<string | null> {
     localStorage.setItem('fcmToken', token);
 
     const phone = localStorage.getItem('lastOrderPhone');
-    console.log('[getNotificationToken] Telefone do último pedido:', phone || 'N/A');
+
+    // [FIX-AUTH] Garante autenticação anônima antes de gravar no Firestore.
+    // Sem autenticação, as regras de segurança do Firestore rejeitam a escrita.
+    try {
+      await ensureAnonymousAuth();
+    } catch (authErr) {
+      console.warn('[getNotificationToken] Falha na autenticação anônima:', authErr);
+      // Continua mesmo sem autenticação (token fica apenas no localStorage)
+    }
 
     const tokenRef = doc(db, 'fcmTokens', token);
     try {
@@ -123,6 +132,14 @@ export async function linkNotificationTokenToPhone(token: string, phone: string)
       console.warn('[linkNotificationTokenToPhone] Token ou phone vazio:', { token: !!token, phone: !!phone });
       return;
     }
+
+    // [FIX-AUTH] Garante autenticação antes de gravar no Firestore
+    try {
+      await ensureAnonymousAuth();
+    } catch (authErr) {
+      console.warn('[linkNotificationTokenToPhone] Falha na autenticação anônima:', authErr);
+    }
+
     console.log('[linkNotificationTokenToPhone] Salvando token no Firestore:', { token: token.substring(0, 20) + '...', phone });
     const tokenRef = doc(db, 'fcmTokens', token);
     const existing = await getDoc(tokenRef);
@@ -148,8 +165,6 @@ export async function linkNotificationTokenToPhone(token: string, phone: string)
 
 // ---------------------------------------------------------------------------
 // requestNotificationToken (legado — mantido para compatibilidade)
-// Combina requestPermission + getNotificationToken em uma única chamada.
-// Preferir usar as duas funções separadas para maior controle de UX.
 // ---------------------------------------------------------------------------
 export async function requestNotificationToken(): Promise<string | null> {
   const permission = await requestPermission();
@@ -175,8 +190,6 @@ interface SendResult {
 
 // ---------------------------------------------------------------------------
 // sendPushNotification
-// Envia notificação via API server-side e trata o erro 410 automaticamente.
-// Retry automático para erros transitórios (5xx). Erros 4xx são fatais.
 // ---------------------------------------------------------------------------
 export async function sendPushNotification(
   fcmToken: string,
@@ -199,15 +212,12 @@ export async function sendPushNotification(
         loggers.fcm.warn('Token expirado (410). Deletando do Firestore e tentando obter novo token.');
         try {
           await deleteDoc(doc(db, 'fcmTokens', fcmToken));
-          // Não remove do localStorage - tentaremos obter um novo token
           loggers.fcm.info('Token removido do Firestore.');
-          
-          // Tenta obter um novo token automaticamente
+
           try {
             const newToken = await getNotificationToken();
             if (newToken) {
               loggers.fcm.info('Novo token obtido com sucesso.');
-              // Tenta enviar a notificação novamente com o novo token
               const retryResponse = await fetch('/api/notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

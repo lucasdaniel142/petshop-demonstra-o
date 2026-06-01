@@ -17,7 +17,10 @@
     "validate:env:vercel": "node scripts/validate-env.mjs --vercel",
     "monitor": "node scripts/monitor-deploy.mjs",
     "monitor:continuous": "node scripts/monitor-deploy.mjs --continuous",
-    "predeploy": "npm run lint && npm run test && npm run validate:env"
+    "predeploy": "npm run lint && npm run test && npm run validate:env",
+    "deploy": "node scripts/deploy.mjs",
+    "deploy:preview": "node scripts/deploy.mjs --preview",
+    "deploy:firebase": "node scripts/deploy.mjs --firebase-only"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",

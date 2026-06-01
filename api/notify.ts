@@ -98,13 +98,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const resolvedLink = typeof link === 'string' && link ? link : (process.env.VITE_APP_URL ?? '/');
+  const iconUrl = icon ? String(icon) : '/icons/icon-sagrada-familia-app.png';
+
+  // [FIX-NOTIFY-PAYLOAD] Inclui tanto `notification` quanto `data`:
+  //   - `notification`: usado pelo FCM para gerar notificações nativas no
+  //     background (quando o SW está em background/fechado). Sem este campo,
+  //     o SW precisa lidar com `data`-only messages manualmente, e muitos
+  //     dispositivos iOS/Android ignoram a notificação silenciosamente.
+  //   - `data`: usado pelo app em foreground para exibir toasts customizados
+  //     e para o SW ter acesso ao link de click_action.
   const message: Message = {
     token,
+    notification: {
+      title: String(title),
+      body: String(body),
+    },
     data: {
       title: String(title),
       body: String(body),
       link: String(resolvedLink),
-      ...(icon ? { icon: String(icon) } : {}),
+      icon: iconUrl,
       ...(extraData && typeof extraData === 'object'
         ? Object.fromEntries(
             Object.entries(extraData as Record<string, unknown>).map(([k, v]) => [k, String(v)])
@@ -113,6 +126,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
     webpush: {
       headers: { Urgency: 'high' },
+      notification: {
+        title: String(title),
+        body: String(body),
+        icon: iconUrl,
+        badge: '/icons/icon-192.png',
+        requireInteraction: false,
+      },
       fcmOptions: { link: resolvedLink },
     },
   };
