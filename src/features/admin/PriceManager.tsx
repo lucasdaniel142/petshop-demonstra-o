@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Check, Bell, Truck } from 'lucide-react';
+import { Search, Check, Truck } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../shared/lib/firebase';
 import { getPlaceholderImage } from '../../shared/utils/placeholderImage';
@@ -37,7 +37,6 @@ export const PriceManager: React.FC = () => {
   const [saveStatuses, setSaveStatuses] = useState<Record<string, SaveStatus>>({});
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isNotifying, setIsNotifying] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
   const timeoutRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   // [HP-06 FIX] Debounce timers para evitar writes desnecessários no Firestore
@@ -135,41 +134,6 @@ export const PriceManager: React.FC = () => {
     }
   };
 
-  const handleNotifyOffers = async () => {
-    const confirmed = window.confirm('Deseja enviar notificações de ofertas para todos os clientes cadastrados?');
-    if (!confirmed) return;
-
-    setIsNotifying(true);
-    setFeedback(null);
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Não autenticado');
-
-      const response = await fetch('/api/send-promotions', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-      });
-      
-      const data = await response.json();
-      if (response.ok) {
-        setFeedback({ 
-          type: 'success', 
-          message: `Notificações enviadas com sucesso para ${data.sent ?? 0} dispositivos!` 
-        });
-      } else {
-        setFeedback({ type: 'error', message: data.error || 'Erro ao enviar notificações' });
-      }
-    } catch (err) {
-      console.error(err);
-      setFeedback({ type: 'error', message: 'Erro de conexão.' });
-    } finally {
-      setIsNotifying(false);
-    }
-  };
-
   const filteredProducts = products.filter(
     (p) =>
       p.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,14 +150,6 @@ export const PriceManager: React.FC = () => {
             <h1 className="text-[20px] font-[800] text-primary">Gestão de Preços e Estoque</h1>
             <p className="text-muted text-[13px] mt-1">Atualize valores, ofertas e disponibilidade por loja.</p>
           </div>
-          <button 
-            onClick={handleNotifyOffers}
-            disabled={isNotifying}
-            className="self-start mt-2 bg-primary text-white px-4 py-2 rounded-[8px] font-bold text-sm hover:bg-primary-dark transition-colors flex items-center gap-2 disabled:opacity-70"
-          >
-            <Bell size={16} />
-            {isNotifying ? 'Enviando...' : 'Notificar Clientes sobre Ofertas'}
-          </button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">

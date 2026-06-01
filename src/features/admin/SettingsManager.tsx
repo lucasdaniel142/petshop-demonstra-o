@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Loader2, AlertCircle } from 'lucide-react';
+import { Settings, Save, Loader2, AlertCircle, Bell } from 'lucide-react';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../shared/lib/firebase';
+import { db, auth } from '../../shared/lib/firebase';
 import { updateDeliverySettings } from '../../shared/config/delivery';
 import { useAuth } from '../../shared/contexts/AuthContext';
 
@@ -25,6 +25,7 @@ export const SettingsManager: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -95,6 +96,68 @@ export const SettingsManager: React.FC = () => {
       setError('Erro ao salvar configurações');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleNotifyOffers = async () => {
+    const confirmed = window.confirm('Deseja enviar notificações de ofertas para todos os clientes cadastrados?');
+    if (!confirmed) return;
+
+    setIsNotifying(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('Não autenticado');
+
+      const response = await fetch('/api/send-promotions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        const sent = Number(data.sent ?? 0);
+        const failed = Number(data.failed ?? 0);
+        const deleted = Number(data.tokensDeleted ?? 0);
+
+        // Sem inscritos
+        if (sent === 0 && failed === 0 && data.message) {
+          const msg = String(data.message);
+          window.dispatchEvent(new CustomEvent('app-toast', {
+            detail: { title: msg, type: 'info', duration: 5000 }
+          }));
+          setError(msg);
+        } else {
+          // Sucesso com detalhes
+          const summary = `Notificações enviadas: ${sent}` +
+            (failed > 0 ? ` • Falharam: ${failed}` : '') +
+            (deleted > 0 ? ` • Tokens inválidos removidos: ${deleted}` : '');
+          window.dispatchEvent(new CustomEvent('app-toast', {
+            detail: { title: '📢 ' + summary, type: 'success', duration: 6000 }
+          }));
+          setSuccess(true);
+          setTimeout(() => setSuccess(false), 5000);
+        }
+      } else {
+        const msg = data.error || `Erro ${response.status} ao enviar notificações`;
+        window.dispatchEvent(new CustomEvent('app-toast', {
+          detail: { title: msg, type: 'error', duration: 6000 }
+        }));
+        setError(msg);
+      }
+    } catch (err) {
+      console.error('[SettingsManager] Falha ao chamar /api/send-promotions:', err);
+      const msg = err instanceof Error ? err.message : 'Erro de conexão.';
+      window.dispatchEvent(new CustomEvent('app-toast', {
+        detail: { title: msg, type: 'error', duration: 6000 }
+      }));
+      setError(msg);
+    } finally {
+      setIsNotifying(false);
     }
   };
 
@@ -227,7 +290,24 @@ export const SettingsManager: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex flex-col sm:flex-row gap-3 justify-end">
+            <button
+              onClick={handleNotifyOffers}
+              disabled={isNotifying}
+              className="flex items-center gap-2 bg-secondary text-white px-6 py-2.5 rounded-xl font-bold text-[14px] hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isNotifying ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Bell size={18} />
+                  Notificar Clientes
+                </>
+              )}
+            </button>
             <button
               onClick={handleSave}
               disabled={saving}

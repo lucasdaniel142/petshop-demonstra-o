@@ -67,23 +67,33 @@ try {
     messaging.onBackgroundMessage((payload) => {
       console.log('[firebase-messaging-sw.js] Mensagem recebida em background:', payload);
 
-      // [FIX-BGMSG] Suporta tanto mensagens notification+data quanto data-only.
-      // Quando o servidor envia apenas `data` (sem `notification`), o FCM não
-      // gera notificação nativa automaticamente — o SW precisa fazê-lo manualmente.
+      // [FIX-DUPLICATE] Quando o payload contém `notification` (ou
+      // `webpush.notification`), o navegador/Web Push já exibe a notificação
+      // nativa automaticamente. Se chamarmos showNotification aqui, o usuário
+      // recebe DUAS notificações (especialmente no Android Chrome). Portanto,
+      // só mostramos manualmente quando a mensagem é data-only.
+      const hasNotificationPayload =
+        !!payload.notification ||
+        !!payload?.webpush?.notification;
+
+      if (hasNotificationPayload) {
+        console.log('[firebase-messaging-sw.js] Notificação nativa será exibida pelo navegador. Pulando showNotification para evitar duplicação.');
+        return;
+      }
+
+      // Apenas para mensagens data-only (sem `notification`), o SW precisa
+      // criar a notificação manualmente.
       const notificationTitle =
-        payload.notification?.title ||
         payload.data?.title ||
         'Supermercado Sagrada Família';
 
       const notificationBody =
-        payload.notification?.body ||
         payload.data?.body ||
         'Nova atualização disponível';
 
       const clickUrl =
         payload.data?.link ||
         payload.fcmOptions?.link ||
-        payload.webpush?.fcmOptions?.link ||
         '/';
 
       const notificationOptions = {

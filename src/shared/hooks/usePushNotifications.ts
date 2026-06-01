@@ -26,6 +26,44 @@ function emitAppToast(toast: ToastPayload) {
   window.dispatchEvent(event);
 }
 
+// [FIX-DUPLICATE-FG] Listener onMessage registrado UMA ÚNICA VEZ no nível do
+// módulo. Sem isso, cada instância de usePushNotifications (NotificationBanner,
+// SoftNotificationPrompt, etc.) montada simultaneamente registrava seu próprio
+// listener, fazendo o toast aparecer 2x ou 3x para a mesma notificação.
+let foregroundListenerInitialized = false;
+
+function initForegroundListenerOnce() {
+  if (foregroundListenerInitialized) return;
+  foregroundListenerInitialized = true;
+
+  getMessagingPromise().then((messaging) => {
+    if (!messaging) {
+      foregroundListenerInitialized = false; // permite retry se messaging não estava pronto
+      return;
+    }
+
+    onMessage(messaging, (payload) => {
+      logger.debug('[FCM] Mensagem foreground recebida:', payload);
+
+      const title =
+        payload.notification?.title ||
+        payload.data?.title ||
+        'Nova atualização';
+      const body =
+        payload.notification?.body ||
+        payload.data?.body ||
+        undefined;
+
+      emitAppToast({
+        title,
+        description: body,
+        type: 'info',
+        duration: 6000,
+      });
+    });
+  });
+}
+
 export function usePushNotifications() {
   const [token, setToken] = useState<string | null>(() =>
     typeof window !== 'undefined' ? localStorage.getItem('fcmToken') : null
@@ -50,40 +88,10 @@ export function usePushNotifications() {
     });
   }, [permission]);
 
-  // [FIX-FOREGROUND] Aguarda Messaging estar pronta antes de registrar onMessage
+  // [FIX-DUPLICATE-FG] Listener registrado uma única vez globalmente; o hook
+  // só dispara a inicialização. Múltiplas montagens não criam listeners duplicados.
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-
-    getMessagingPromise().then((messaging) => {
-      if (!messaging) return;
-
-      unsubscribe = onMessage(messaging, (payload) => {
-        logger.debug('[FCM] Mensagem foreground recebida:', payload);
-
-        // [FIX-PAYLOAD] api/notify.ts envia campos em `data`, não em `notification`.
-        // O SDK web não gera notificação nativa no foreground automaticamente
-        // (comportamento correto: o app está aberto). Exibimos um toast.
-        const title =
-          payload.notification?.title ||
-          payload.data?.title ||
-          'Nova atualização';
-        const body =
-          payload.notification?.body ||
-          payload.data?.body ||
-          undefined;
-
-        emitAppToast({
-          title,
-          description: body,
-          type: 'info',
-          duration: 6000,
-        });
-      });
-    });
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    initForegroundListenerOnce();
   }, []);
 
   // ---------------------------------------------------------------------------

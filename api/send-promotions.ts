@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Buscar configurações de promoção do Firestore (lê de settings/delivery)
     const settingsDoc = await adminDb.collection('settings').doc('delivery').get();
-    let title = '� Promoção Especial!';
+    let title = '🔥 Promoção Especial!';
     let body = 'Confira nossas ofertas imperdíveis!';
 
     if (settingsDoc.exists) {
@@ -96,10 +96,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (let i = 0; i < allTokens.length; i += BATCH_SIZE) {
       const batch = allTokens.slice(i, i + BATCH_SIZE);
+      // [FIX-PROMO-PAYLOAD] Inclui notification + webpush.notification + data:
+      //   - notification: usado pelo FCM para exibir notificação nativa
+      //     em background no Android/iOS.
+      //   - webpush.notification: garante que o Chrome Desktop exiba a
+      //     notificação com ícone/badge corretos via Web Push.
+      //   - data: usado pelo app em foreground para exibir toast customizado.
       const response = await adminMessaging.sendEachForMulticast({
         tokens: batch,
         notification: { title, body },
+        data: {
+          title: String(title),
+          body: String(body),
+          link: '/',
+        },
         webpush: {
+          headers: { Urgency: 'high' },
+          notification: {
+            title: String(title),
+            body: String(body),
+            icon: '/icons/icon-sagrada-familia-app.png',
+            badge: '/icons/icon-192.png',
+            requireInteraction: false,
+          },
           fcmOptions: {
             link: '/'
           }
