@@ -122,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           notification: {
             title: String(title),
             body: String(body),
-            icon: '/icons/icon-sagrada-familia-app.png',
+            icon: '/icons/icon-app.png',
             badge: '/icons/icon-192.png',
             requireInteraction: false,
           },

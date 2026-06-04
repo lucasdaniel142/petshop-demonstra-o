@@ -8,10 +8,10 @@
 
 export const BRAND = {
   /** Nome completo do supermercado (ex: "Supermercado Bom Preço") */
-  name: import.meta.env.VITE_STORE_NAME || 'Sagrada Família',
+  name: import.meta.env.VITE_STORE_NAME || 'Meu E-Commerce',
 
   /** Nome curto para título da aba do navegador */
-  shortName: import.meta.env.VITE_STORE_SHORT_NAME || 'Sagrada Família',
+  shortName: import.meta.env.VITE_STORE_SHORT_NAME || 'Meu E-Commerce',
 
   /** Saudação personalizada na mensagem do WhatsApp */
   whatsappGreeting: import.meta.env.VITE_STORE_WHATSAPP_GREETING || 'Olá!',

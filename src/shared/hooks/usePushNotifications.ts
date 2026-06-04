@@ -71,16 +71,16 @@ function initForegroundListenerOnce() {
           navigator.serviceWorker.ready.then((registration) => {
             registration.showNotification(title, {
               body,
-              icon: '/icons/icon-sagrada-familia-app.png',
+              icon: '/icons/icon-app.png',
               badge: '/icons/icon-192.png',
-              tag: 'sagrada-familia-fg',
+              tag: 'ecommerce-fg',
               silent: false,
             } as NotificationOptions);
           }).catch(() => {
             // Fallback: Notification API direta (sem SW)
             new Notification(title, {
               body,
-              icon: '/icons/icon-sagrada-familia-app.png',
+              icon: '/icons/icon-app.png',
             });
           });
         } catch (e) {

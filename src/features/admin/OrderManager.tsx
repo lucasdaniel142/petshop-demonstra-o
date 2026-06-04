@@ -18,6 +18,7 @@ import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc, updateDo
 import { db, auth } from '../../shared/lib/firebase';
 import type { Order } from '../../shared/types';
 import { formatCurrency, getItemPrice } from '../../shared/utils/currency';
+import { BRAND } from '../../shared/config/brand';
 import { useNotificationSound } from '../../shared/hooks/useNotificationSound';
 
 // Emojis definidos via Unicode Escape Sequences para evitar corrupção de
@@ -313,7 +314,7 @@ export const OrderManager: React.FC = () => {
             },
             body: JSON.stringify({
               token: fcmToken,
-              title: 'Sagrada Família: Pedido Atualizado!',
+              title: `${BRAND.shortName}: Pedido Atualizado!`,
               body: `Seu pedido #${order?.id.slice(0, 8)} agora está: ${label}.`,
               link: '/',
             }),

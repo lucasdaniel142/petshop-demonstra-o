@@ -98,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const resolvedLink = typeof link === 'string' && link ? link : (process.env.VITE_APP_URL ?? '/');
-  const iconUrl = icon ? String(icon) : '/icons/icon-sagrada-familia-app.png';
+  const iconUrl = icon ? String(icon) : '/icons/icon-app.png';
 
   // [FIX-NOTIFY-PAYLOAD] Inclui tanto `notification` quanto `data`:
   //   - `notification`: usado pelo FCM para gerar notificações nativas no

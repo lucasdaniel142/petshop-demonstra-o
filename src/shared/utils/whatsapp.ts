@@ -60,7 +60,7 @@ ${EMOJI.CHECK} *TOTAL: ${formatCurrency(total + deliveryFee)}*
 
 ${EMOJI.CARD} *Pagamento:* ${paymentMethod}${changeFor ? `\n${EMOJI.CASH} *Troco para:* R$ ${changeFor}` : ''}
 
-_Enviado via App Supermercado Sagrada Família_`;
+_Enviado via App ${import.meta.env.VITE_STORE_NAME || 'Meu E-Commerce'}_`;
 
   return `https://api.whatsapp.com/send?phone=${storePhone}&text=${encodeURIComponent(text)}`;
 }

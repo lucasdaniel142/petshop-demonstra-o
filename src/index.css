@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  /* White Label — Cores Sagrada Família */
-  --color-primary: #004b22;       /* Verde Escuro */
-  --color-primary-dark: #003a1a;
-  --color-accent: #00c900;        /* Verde Limão */
-  --color-accent-dark: #00a800;
-  --color-secondary: #00c900;
+  /* White Label — Paleta Neutra (Branco + Cinza) */
+  --color-primary: #374151;       /* Cinza Escuro */
+  --color-primary-dark: #1f2937;
+  --color-accent: #6b7280;        /* Cinza Médio */
+  --color-accent-dark: #4b5563;
+  --color-secondary: #6b7280;
   --color-on-primary: #ffffff;
   --color-on-accent: #ffffff;
-  --color-bg: #ffffff;            /* Fundo Branco Dominante */
+  --color-bg: #f9fafb;            /* Fundo Cinza Muito Claro */
   --color-card: #ffffff;
-  --color-text: #004b22;          /* Texto principal em verde escuro para harmonia */
-  --color-muted: #666666;
-  --color-border: #f0f0f0;
+  --color-text: #111827;          /* Texto principal quase preto */
+  --color-muted: #6b7280;
+  --color-border: #e5e7eb;
 }
 
 .scrollbar-hide {
