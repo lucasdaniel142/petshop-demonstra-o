@@ -755,6 +755,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   />
                 </div>
               </div>
+
+              <div className="space-y-3 p-4 border border-gray-200 rounded-[12px] bg-gray-50/30">
                 <label
                   htmlFor="cart-payment"
                   className="block text-[13px] font-[800] text-text uppercase tracking-wider"
