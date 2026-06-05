@@ -216,6 +216,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const docRef = await adminDb.collection('pedidos').add(orderData);
 
+    // [FIX] Sincronizar token no fcmTokens caso o client-side tenha falhado (adblock/regras)
+    if (fcmToken && cleanPhone) {
+      try {
+        await adminDb.collection('fcmTokens').doc(fcmToken).set({
+          phone: cleanPhone,
+          updatedAt: new Date().toISOString(),
+          lastUsed: new Date().toISOString(),
+          platform: 'checkout-api-fallback'
+        }, { merge: true });
+      } catch (err) {
+        console.warn('[Checkout] Erro ao sincronizar token FCM:', err);
+      }
+    }
+
     return res.status(200).json({ 
       success: true, 
       orderId: docRef.id,

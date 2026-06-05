@@ -116,6 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           title: String(title),
           body: String(body),
           link: '/',
+          icon: '/icons/icon-app.png',
         },
         webpush: {
           headers: { Urgency: 'high' },

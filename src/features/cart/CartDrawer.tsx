@@ -722,38 +722,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     type="text"
                     value={houseNumber}
                     onChange={(e) => setHouseNumber(e.target.value)}
-                    className={`w-[110px] rounded-[10px] border px-4 py-2.5 text-[14px] outline-none transition-colors ${
+                    className={`w-[100px] rounded-[10px] border px-4 py-2.5 text-[14px] outline-none transition-colors ${
                       isAddressInvalid
                         ? 'border-red-500 bg-red-50'
                         : 'border-border focus:border-primary'
                     }`}
-                    placeholder="Número *"
+                    placeholder="Nº *"
                   />
                   <input
                     type="text"
                     value={complement}
                     onChange={(e) => setComplement(e.target.value)}
-                    className="flex-1 rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none focus:border-primary transition-colors"
-                    placeholder="Ref. ou Compl. (Opcional)"
+                    className="flex-1 rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none focus:border-primary transition-colors min-w-0"
+                    placeholder="Complemento (Opcional)"
                   />
                 </div>
 
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={addressNeighborhood}
-                    readOnly
-                    className="w-1/2 rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none bg-gray-100/70 text-gray-600 cursor-not-allowed"
-                    placeholder="Bairro"
-                  />
-                  <input
-                    type="text"
-                    value={addressCity}
-                    readOnly
-                    className="w-1/2 rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none bg-gray-100/70 text-gray-600 cursor-not-allowed"
-                    placeholder="Cidade"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={addressNeighborhood ? `${addressNeighborhood} - ${addressCity}` : ''}
+                  readOnly
+                  className="w-full rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none bg-gray-100/70 text-gray-600 cursor-not-allowed text-ellipsis overflow-hidden whitespace-nowrap"
+                  placeholder="Bairro - Cidade"
+                />
               </div>
 
               <div className="space-y-3 p-4 border border-gray-200 rounded-[12px] bg-gray-50/30">
