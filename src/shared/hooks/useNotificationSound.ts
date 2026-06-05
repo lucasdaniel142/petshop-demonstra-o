@@ -4,7 +4,7 @@
 // [BP-02 FIX] Move o contexto de áudio global para dentro de um hook,
 // evitando compartilhamento indesejado entre instâncias de componentes
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 /**
  * Hook para reproduzir um beep de notificação usando Web Audio API.
