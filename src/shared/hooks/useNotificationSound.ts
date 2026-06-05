@@ -44,7 +44,7 @@ export function useNotificationSound() {
     };
   }, []);
 
-  const playBeep = useCallback(() => {
+  const playBeep = useCallback(async () => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -53,24 +53,41 @@ export function useNotificationSound() {
       const audioContext = audioContextRef.current;
 
       if (audioContext.state === 'suspended') {
-        audioContext.resume().catch(() => {
-          console.warn('[useNotificationSound] Áudio bloqueado pelo navegador. O usuário precisa interagir com a página.');
-        });
+        try {
+          await audioContext.resume();
+        } catch (e) {
+          console.warn('[useNotificationSound] Áudio bloqueado. O usuário precisa interagir com a página antes do primeiro bipe.');
+          return;
+        }
       }
 
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
+      // Bipe 1 (Mais alto)
+      const osc1 = audioContext.createOscillator();
+      const gain1 = audioContext.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioContext.destination);
+      osc1.type = 'square'; // Onda quadrada é muito mais perceptível
+      osc1.frequency.setValueAtTime(600, audioContext.currentTime);
+      gain1.gain.setValueAtTime(0, audioContext.currentTime);
+      gain1.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+      gain1.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
+      osc1.start(audioContext.currentTime);
+      osc1.stop(audioContext.currentTime + 0.25);
 
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
+      // Bipe 2 (Mais agudo)
+      const osc2 = audioContext.createOscillator();
+      const gain2 = audioContext.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioContext.destination);
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(800, audioContext.currentTime + 0.3);
+      gain2.gain.setValueAtTime(0, audioContext.currentTime + 0.3);
+      gain2.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.35);
+      gain2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+      osc2.start(audioContext.currentTime + 0.3);
+      osc2.stop(audioContext.currentTime + 0.55);
 
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-      gain.gain.setValueAtTime(0.5, audioContext.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
+      console.log('[useNotificationSound] Bipe duplo reproduzido com sucesso!');
     } catch (err) {
       console.error('[useNotificationSound] Erro ao reproduzir som:', err);
     }
