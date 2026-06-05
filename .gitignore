@@ -1,17 +1,66 @@
+# ============================================================
+# Dependências
+# ============================================================
 node_modules/
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
-!.env.vercel
 
-# Firebase credentials (NEVER commit)
+# ============================================================
+# Build / Output
+# ============================================================
+dist/
+build/
+coverage/
+
+# ============================================================
+# ARQUIVOS SENSÍVEIS — NUNCA COMMITAR
+# ============================================================
+# Todas as variáveis de ambiente (exceto templates sem valores)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Service Account Keys do Firebase (CRÍTICO)
+*.json.key
 serviceAccountKey.json
 FIREBASE_SERVICE_ACCOUNT_KEY.json
 *-firebase-adminsdk-*.json
+Firebase\ Service\ Account.json
 
+# ============================================================
+# Templates de env (SEM valores reais — podem ir para o repo)
+# ============================================================
+# .env.example  → OK (sem valores reais)
+# .env.vercel   → BLOQUEADO (tem credenciais reais)
+!.env.example
+# .env.vercel tem credenciais reais — manter fora do repo
+# Use o painel da Vercel para configurar as variáveis
+
+# ============================================================
+# Vercel
+# ============================================================
 .vercel
-.env*.local
+
+# ============================================================
+# Sistema operacional
+# ============================================================
+.DS_Store
+Thumbs.db
+*.log
+
+# ============================================================
+# IDEs
+# ============================================================
+.cursor/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ============================================================
+# Arquivos temporários / debug
+# ============================================================
+checkout-test.json
+*.backup
+dataconnect/
