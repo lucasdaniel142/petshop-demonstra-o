@@ -13,28 +13,20 @@ coverage/
 # ============================================================
 # ARQUIVOS SENSÍVEIS — NUNCA COMMITAR
 # ============================================================
-# Todas as variáveis de ambiente (exceto templates sem valores)
 .env
 .env.local
 .env.*.local
 .env.development
 .env.production
+.env.vercel
 
-# Service Account Keys do Firebase (CRÍTICO)
-*.json.key
+# Service Account Keys do Firebase
 serviceAccountKey.json
 FIREBASE_SERVICE_ACCOUNT_KEY.json
 *-firebase-adminsdk-*.json
-Firebase\ Service\ Account.json
 
-# ============================================================
-# Templates de env (SEM valores reais — podem ir para o repo)
-# ============================================================
-# .env.example  → OK (sem valores reais)
-# .env.vercel   → BLOQUEADO (tem credenciais reais)
+# Template sem valores reais — pode ir para o repo
 !.env.example
-# .env.vercel tem credenciais reais — manter fora do repo
-# Use o painel da Vercel para configurar as variáveis
 
 # ============================================================
 # Vercel
@@ -53,13 +45,9 @@ Thumbs.db
 # ============================================================
 .cursor/
 .vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
 
 # ============================================================
-# Arquivos temporários / debug
+# Arquivos temporários
 # ============================================================
 checkout-test.json
 *.backup
