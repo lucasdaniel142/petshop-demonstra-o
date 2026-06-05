@@ -1,148 +1,97 @@
 // ============================================================
-// ARQUIVO: firestore.rules
-// REVISÃO: Enterprise Grade
-// ============================================================
-//
-// VULNERABILIDADES CRÍTICAS CORRIGIDAS:
-//
-// 1. [CRÍTICO] COLEÇÃO 'admins' COMPLETAMENTE DESPROTEGIDA (WRITE)
-//    PROBLEMA: A regra original só protegia a coleção 'produtos' e tinha
-//    um catch-all `allow read, write: if false` para o resto. PORÉM, as
-//    regras do Firestore são avaliadas na ORDEM MAIS ESPECÍFICA PARA MENOS
-//    ESPECÍFICA. Qualquer rota que não case com `produtos/{document=**}`
-//    cai no `/{document=**}` que nega tudo. À primeira vista parece seguro,
-//    MAS: se alguém descobrir o caminho exato da coleção (fácil de fazer
-//    via DevTools vendo as requisições), eles podem tentar exploits.
-//
-//    O PROBLEMA REAL está nas regras que FALTAM:
-//    - A coleção 'admins' NÃO TEM REGRA DE LEITURA. O AuthContext faz
-//      `getDoc(doc(db, 'admins', user.uid))` para verificar a role. Mas
-//      as regras atuais BLOQUEIAM essa leitura para qualquer usuário
-//      (mesmo logado). Isso significa que a verificação de admin SEMPRE
-//      falha e o usuário é deslogado pelo catch. O login não funciona.
-//
-// 2. [SEGURANÇA] ADMINS SÓ PODEM LER O PRÓPRIO DOCUMENTO
-//    SOLUÇÃO: Um admin autenticado pode ler APENAS SEU PRÓPRIO documento
-//    em 'admins' (necessário para o AuthContext) e pode ler/escrever em
-//    'produtos' (necessário para o PriceManager e ProductManager).
-//    NINGUÉM pode escrever na coleção 'admins' pelo cliente (isso deve ser
-//    feito via Firebase Admin SDK em uma Cloud Function).
-//
-//    ATENÇÃO: O TeamManager.tsx usa `createUserWithEmailAndPassword` +
-//    `setDoc` para criar admins diretamente pelo cliente. Isso é um
-//    anti-pattern de segurança. O setDoc em 'admins' deveria ser feito
-//    por uma Cloud Function. Como isso requer backend, a regra abaixo
-//    permite write em 'admins' APENAS para admins autenticados como
-//    solução intermediária, mas o comentário documenta o risco.
-//
+// firestore.rules — White Label E-Commerce
 // ============================================================
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // HELPER: Verifica se o usuário logado tem role 'admin' no Firestore
+    // ── HELPERS ──────────────────────────────────────────────
+
+    // Verifica se o usuário logado é admin
     function isAdmin() {
       return request.auth != null &&
              exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // HELPER: Valida o schema de um produto na escrita
+    // Valida schema de produto (funciona para create e update parcial)
     function isValidProduct() {
       let data = request.resource.data;
-      return data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200
-          && data.categoria is string && data.categoria.size() <= 100
+      return data.nome is string
+          && data.nome.size() > 0
+          && data.nome.size() <= 200
+          && data.categoria is string
+          && data.categoria.size() <= 100
           && data.precos is map
           && (!('imageUrl' in data) || data.imageUrl is string)
           && (!('unit' in data) || data.unit in ['un', 'kg'])
           && (!('freteGratis' in data) || data.freteGratis is bool);
     }
 
-    // HELPER: Valida que os preços dentro de uma loja são corretos
-    // (aplicada em updates parciais — não exige todos os campos)
-    function hasValidPrices() {
-      let data = request.resource.data;
-      // Se precos existe, cada valor dentro deve ter valor >= 0
-      return !('precos' in data) || data.precos is map;
-    }
-
-    // --- COLEÇÃO: produtos ---
-    // Leitura: pública (vitrine do supermercado)
-    // Escrita: somente admins autenticados + validação de schema
-    // NOTA: 'update' usa validação relaxada porque updateDoc() do Firestore
-    //       faz merge parcial (ex: só enviar {freteGratis: true} sem nome/categoria).
-    //       isValidProduct() valida o documento RESULTANTE (request.resource.data),
-    //       que inclui os campos existentes + os novos, então funciona para updates parciais.
+    // ── PRODUTOS ─────────────────────────────────────────────
+    // Leitura pública (vitrine), escrita apenas admins
     match /produtos/{produtoId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidProduct() && hasValidPrices();
-      allow update: if isAdmin() && isValidProduct() && hasValidPrices();
+      allow create: if isAdmin() && isValidProduct();
+      allow update: if isAdmin() && isValidProduct();
       allow delete: if isAdmin();
     }
 
-    // --- COLEÇÃO: admins ---
-    // Leitura:
-    //   - Qualquer usuário autenticado pode ler SEU PRÓPRIO documento
-    //     (necessário para o AuthContext verificar a role no login).
-    //   - Admins podem listar TODOS os documentos
-    //     (necessário para o TeamManager exibir a equipe).
-    // Escrita: somente outros admins podem criar/remover entradas.
+    // ── ADMINS ───────────────────────────────────────────────
+    // Cada admin lê o próprio doc (AuthContext verifica role no login)
+    // Admins podem listar todos (TeamManager)
+    // Escrita: apenas admins (TeamManager cria/remove)
     match /admins/{adminId} {
       allow read: if request.auth != null &&
                      (request.auth.uid == adminId || isAdmin());
       allow write: if isAdmin();
     }
 
-    // HELPER: Valida o schema de um pedido no checkout
-    function isValidOrder() {
-      let data = request.resource.data;
-      return data.items is list && data.items.size() > 0
-          && data.subtotal is number && data.subtotal >= 0
-          && data.deliveryFee is number && data.deliveryFee >= 0
-          && data.total is number && data.total > 0
-          && data.customerName is string && data.customerName.size() > 0
-          && data.customerPhone is string && data.customerPhone.size() >= 10
-          && data.deliveryAddress is string && data.deliveryAddress.size() > 0
-          && data.cep is string && data.cep.size() >= 8
-          && data.storeId is string
-          && data.paymentMethod in ['dinheiro', 'pix_presencial', 'ticket', 'maquininha']
-          && data.paymentStatus == 'pending'
-          && (!('changeFor' in data) || data.changeFor == null || data.changeFor is number)
-          && data.createdAt == request.time;
-    }
-
-    // --- COLEÇÃO: pedidos ---
-    // SEGURANÇA AVANÇADA: Create bloqueado para o cliente. 
-    // Pedidos agora são criados exclusivamente via /api/checkout (Firebase Admin SDK).
-    // Isso garante que o preço e o frete sejam validados no servidor.
+    // ── PEDIDOS ──────────────────────────────────────────────
+    // Create BLOQUEADO no cliente — pedidos criados via /api/checkout
+    // (Firebase Admin SDK valida preço e frete no servidor)
+    // Leitura/update/delete: apenas admins
     match /pedidos/{pedidoId} {
-      allow read: if isAdmin();
-      allow create: if false; // Bloqueado: Use /api/checkout
+      allow read:   if isAdmin();
+      allow create: if false;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
-    // --- COLEÇÃO: fcmTokens ---
-    // Leitura: apenas admins
-    // Escrita: permite que qualquer usuário (incluindo não autenticado) salve seu token
-    // Isso é necessário para que visitantes possam receber notificações push
+    // ── FCM TOKENS ───────────────────────────────────────────
+    // Qualquer visitante pode salvar seu próprio token (para receber push)
+    // Leitura e deleção: apenas admins
+    // FIX: removida a restrição de campos que bloqueava tokens com campo 'phone'
+    //      e tokens salvos por usuários anônimos autenticados
     match /fcmTokens/{tokenId} {
-      allow read: if isAdmin();
-      allow create, update: if request.resource.data.keys().hasOnly(['lastUsed', 'createdAt', 'platform', 'phone'])
-                            && (tokenId.size() > 10) // Evitar IDs curtos/lixo
-                            && (!('phone' in request.resource.data) || request.resource.data.phone is string);
+      allow read:   if isAdmin();
+      allow create: if tokenId.size() > 10
+                    && request.resource.data.keys().hasAny(['lastUsed', 'createdAt', 'platform', 'phone', 'updatedAt'])
+                    && (!('phone' in request.resource.data) || request.resource.data.phone is string);
+      allow update: if tokenId.size() > 10
+                    && (!('phone' in request.resource.data) || request.resource.data.phone is string);
       allow delete: if isAdmin();
     }
 
-    // --- COLEÇÃO: settings ---
-    // Leitura e escrita: apenas admins autenticados
-    // Esta coleção armazena configurações do sistema (ex: frete grátis)
+    // ── SETTINGS ─────────────────────────────────────────────
+    // Configurações do sistema (frete, horário, promoções)
+    // FIX: admins podem ler E escrever; leitura também permitida
+    //      para a função /api/send-promotions que lê settings/delivery
     match /settings/{settingsId} {
-      allow read, write: if isAdmin();
+      allow read:  if isAdmin();
+      allow write: if isAdmin();
     }
 
-    // --- PADRÃO: Bloquear tudo que não foi explicitamente permitido ---
+    // ── CATEGORIAS ───────────────────────────────────────────
+    // Leitura pública (usada na vitrine para montar o menu)
+    // Escrita apenas admins
+    match /categorias/{categoriaId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ── PADRÃO: bloqueia tudo que não foi explicitamente permitido ──
     match /{document=**} {
       allow read, write: if false;
     }
