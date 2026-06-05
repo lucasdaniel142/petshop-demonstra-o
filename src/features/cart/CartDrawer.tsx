@@ -84,6 +84,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  // Campos estruturados de endereço
+  const [addressStreet, setAddressStreet] = useState(''); // Rua (preenchida pelo CEP)
+  const [addressNeighborhood, setAddressNeighborhood] = useState(''); // Bairro
+  const [addressCity, setAddressCity] = useState(''); // Cidade - UF
+  const [houseNumber, setHouseNumber] = useState(''); // Número (obrigatório)
+  const [complement, setComplement] = useState(''); // Complemento (opcional)
   const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
   const [changeFor, setChangeFor] = useState('');
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -96,7 +102,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isNameInvalid = checkoutError !== null && !customerName.trim();
-  const isAddressInvalid = checkoutError !== null && !deliveryAddress.trim();
+  const isAddressInvalid = checkoutError !== null && !houseNumber.trim();
   const isCepInvalid = checkoutError !== null && cep.replace(/\D/g, '').length !== 8;
 
   // -------------------------------------------------------------------------
@@ -118,7 +124,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           return;
         }
 
-        setDeliveryAddress((address.formatted || '') + ', Nº ');
+        setAddressStreet(address.logradouro || '');
+        setAddressNeighborhood(address.bairro || '');
+        setAddressCity(`${address.localidade} - ${address.uf}`);
+        // Monta deliveryAddress completo (atualizado depois com número)
+        setDeliveryAddress(address.formatted || '');
 
         const geocodeString = `${address.logradouro}, ${address.bairro}, ${address.localidade}, ${address.uf}, Brasil`;
         const coords = await geocodeAddress(geocodeString);
@@ -206,18 +216,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     if (
       !customerName.trim() ||
       !isPhoneValid ||
-      !deliveryAddress.trim() ||
+      !houseNumber.trim() ||
       cep.replace(/\D/g, '').length !== 8
     ) {
       if (!isPhoneValid && customerPhone.trim()) {
         setCheckoutError('Telefone inválido. Digite DDD + número (mínimo 10 dígitos).');
       } else {
         setCheckoutError(
-          'Por favor, informe Nome, Telefone (com DDD), CEP e endereço para concluir o pedido.'
+          'Por favor, informe Nome, Telefone (com DDD), CEP e número da casa para concluir o pedido.'
         );
       }
       return;
     }
+
+    // Monta o endereço final com todos os campos
+    const fullAddress = [
+      addressStreet,
+      `Nº ${houseNumber}`,
+      complement.trim() ? complement.trim() : null,
+      addressNeighborhood,
+      addressCity,
+    ].filter(Boolean).join(', ');
 
     if (paymentMethod === 'Dinheiro' && changeFor) {
       const cleanChange = changeFor.replace(',', '.');
@@ -240,7 +259,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     try {
       const sanitize = (str: string) => str.trim().replace(/[<>{}]/g, '');
       const sanitizedName = sanitize(customerName);
-      const sanitizedAddress = sanitize(deliveryAddress);
+      const sanitizedAddress = sanitize(fullAddress);
 
       try {
         localStorage.setItem('lastOrderPhone', cleanPhone);
@@ -309,7 +328,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         items,
         serverSubtotal,
         sanitizedName,
-        deliveryAddress,
+        sanitizedAddress,
         paymentMethod,
         selectedStoreLabel,
         storePhone,
@@ -337,6 +356,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       setCustomerName('');
       setCustomerPhone('');
       setDeliveryAddress('');
+      setAddressStreet('');
+      setAddressNeighborhood('');
+      setAddressCity('');
+      setHouseNumber('');
+      setComplement('');
       setCep('');
       setChangeFor('');
       toggleCart();
@@ -671,11 +695,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 )}
               </div>
 
-              <div>
-                <label
-                  htmlFor="cart-address"
-                  className="flex justify-between items-center text-[13px] font-[600] text-text mb-2"
-                >
+              <div className="space-y-3 p-4 border border-gray-200 rounded-[12px] bg-gray-50/30">
+                <div className="flex justify-between items-center text-[13px] font-[600] text-text">
                   <span>Endereço de Entrega</span>
                   <span
                     className={
@@ -684,23 +705,56 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         : 'text-red-500 opacity-50'
                     }
                   >
-                    * Obrigatório preencher.
+                    * Preencha o número.
                   </span>
-                </label>
-                <textarea
-                  id="cart-address"
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors resize-none h-[80px] ${
-                    isAddressInvalid
-                      ? 'border-red-500 bg-red-50'
-                      : 'border-border focus:border-primary'
-                  }`}
-                  placeholder="Rua, número, bairro, cidade, complemento..."
-                />
-              </div>
+                </div>
 
-              <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl space-y-3">
+                <input
+                  type="text"
+                  value={addressStreet}
+                  readOnly
+                  className="w-full rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none bg-gray-100/70 text-gray-600 cursor-not-allowed"
+                  placeholder="Rua (preenchida pelo CEP)"
+                />
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={houseNumber}
+                    onChange={(e) => setHouseNumber(e.target.value)}
+                    className={`w-[110px] rounded-[10px] border px-4 py-2.5 text-[14px] outline-none transition-colors ${
+                      isAddressInvalid
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-border focus:border-primary'
+                    }`}
+                    placeholder="Número *"
+                  />
+                  <input
+                    type="text"
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                    className="flex-1 rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none focus:border-primary transition-colors"
+                    placeholder="Ref. ou Compl. (Opcional)"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={addressNeighborhood}
+                    readOnly
+                    className="w-1/2 rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none bg-gray-100/70 text-gray-600 cursor-not-allowed"
+                    placeholder="Bairro"
+                  />
+                  <input
+                    type="text"
+                    value={addressCity}
+                    readOnly
+                    className="w-1/2 rounded-[10px] border border-border px-4 py-2.5 text-[14px] outline-none bg-gray-100/70 text-gray-600 cursor-not-allowed"
+                    placeholder="Cidade"
+                  />
+                </div>
+              </div>
                 <label
                   htmlFor="cart-payment"
                   className="block text-[13px] font-[800] text-text uppercase tracking-wider"
