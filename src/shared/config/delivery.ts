@@ -32,11 +32,28 @@ export function updateDeliverySettings(enabled: boolean, minValue: number): void
   freeShippingMinValue = minValue;
 }
 
-export const STORE_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  benedito_bentes: { lat: -9.5694, lng: -35.7469 },
-  salvador_lyra:   { lat: -9.6098, lng: -35.7347 },
-  vergel_do_lago:  { lat: -9.6237, lng: -35.7425 },
-};
+// ============================================================
+// Coordenadas das filiais — White Label
+// Configure via VITE_STORE_COORDINATES no .env:
+//   VITE_STORE_COORDINATES=principal:-23.5505,-46.6333,filial_norte:-23.5100,-46.6100
+// Formato: id:lat,lng  separados por vírgula entre filiais
+// ============================================================
+function parseCoordinates(): Record<string, { lat: number; lng: number }> {
+  const raw = import.meta.env.VITE_STORE_COORDINATES ?? '';
+  if (!raw) return {};
+  const result: Record<string, { lat: number; lng: number }> = {};
+  raw.split('|').forEach((entry: string) => {
+    const parts = entry.trim().split(':');
+    if (parts.length === 2) {
+      const id = parts[0].trim();
+      const [lat, lng] = parts[1].split(',').map(Number);
+      if (!isNaN(lat) && !isNaN(lng)) result[id] = { lat, lng };
+    }
+  });
+  return result;
+}
+
+export const STORE_COORDINATES: Record<string, { lat: number; lng: number }> = parseCoordinates();
 
 export interface DeliveryResult {
   fee: number;

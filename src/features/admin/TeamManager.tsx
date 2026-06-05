@@ -6,6 +6,7 @@ import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { db, firebaseConfig } from '../../shared/lib/firebase';
 import { FeedbackBanner } from '../../shared/ui/FeedbackBanner';
 import type { AdminUser, AdminStoreAccess, FeedbackState } from '../../shared/types';
+import { STORES } from '../../shared/config/stores';
 
 const validatePassword = (senha: string): string | null => {
   if (senha.length < 8) return 'A senha deve ter pelo menos 8 caracteres.';
@@ -14,11 +15,10 @@ const validatePassword = (senha: string): string | null => {
   return null;
 };
 
+// Opções geradas dinamicamente a partir das filiais configuradas no .env
 const ADMIN_ACCESS_OPTIONS: ReadonlyArray<{ id: AdminStoreAccess; label: string }> = [
   { id: 'universal', label: 'Administrador Universal' },
-  { id: 'benedito-bentes', label: 'Benedito Bentes' },
-  { id: 'salvador-lyra', label: 'Salvador Lyra' },
-  { id: 'vergel', label: 'Vergel' },
+  ...STORES.map((s) => ({ id: s.id as AdminStoreAccess, label: s.label })),
 ];
 
 const getSecondaryApp = () => {

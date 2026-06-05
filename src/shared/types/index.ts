@@ -1,5 +1,9 @@
 // src/shared/types/index.ts
-export type StoreId = 'benedito_bentes' | 'salvador_lyra' | 'vergel_do_lago';
+// ============================================================
+// White Label — StoreId é genérico. Cada cliente define suas
+// próprias filiais via VITE_STORE_BRANCHES no .env.
+// ============================================================
+export type StoreId = string;
 
 export interface StorePrice {
   valor: number;
@@ -55,7 +59,7 @@ export interface ManagedProduct {
   freteGratis?: boolean;
 }
 
-export type AdminStoreAccess = 'universal' | 'benedito-bentes' | 'salvador-lyra' | 'vergel';
+export type AdminStoreAccess = 'universal' | (string & {});
 
 export interface AdminUser {
   id: string;
@@ -64,7 +68,7 @@ export interface AdminUser {
   unidade: string;
   storeAccess?: AdminStoreAccess;
   role: 'admin';
-  createdAt?: unknown; 
+  createdAt?: unknown;
 }
 
 export interface StoreOption {

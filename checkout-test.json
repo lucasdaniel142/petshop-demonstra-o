@@ -4,7 +4,7 @@
   "customerPhone":"82999999999",
   "deliveryAddress":"Rua Teste 123",
   "cep":"57000000",
-  "storeId":"benedito_bentes",
+  "storeId":"principal",
   "paymentMethod":"dinheiro",
   "changeFor":"0",
   "distanceKm":1.2,

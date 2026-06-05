@@ -1,6 +1,6 @@
 {
-  "name": "Meu E-commerce",
-  "description": "E-commerce SPA para supermercado com checkout via WhatsApp.",
+  "name": "Meu E-Commerce",
+  "description": "Plataforma de e-commerce White Label com checkout via WhatsApp. Funciona para qualquer tipo de loja.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

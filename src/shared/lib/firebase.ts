@@ -68,3 +68,18 @@ export async function ensureAnonymousAuth(): Promise<void> {
   if (auth.currentUser) return;
   await signInAnonymously(auth);
 }
+
+/**
+ * Envia a configuração do Firebase para o Service Worker via postMessage.
+ * Necessário para o SW inicializar o Firebase sem credenciais hardcoded (White Label).
+ */
+export function sendFirebaseConfigToSW(): void {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then((registration) => {
+      registration.active?.postMessage({
+        type: 'FIREBASE_CONFIG',
+        config: firebaseConfig,
+      });
+    }).catch(() => {/* SW não pronto ainda */});
+  }
+}

@@ -13,15 +13,31 @@
 //   Acima de 15km = fora da área
 // ============================================================
 
-import type { StoreId } from '../shared/types';
 import type { Coordinates } from '../shared/utils/geolocation';
 
-/** Coordenadas geográficas exatas de cada sede */
-export const STORE_COORDINATES: Record<StoreId, Coordinates> = {
-  benedito_bentes: { lat: -9.548488550476605, lng: -35.72458132449029 },
-  salvador_lyra: { lat: -9.560838058928207, lng: -35.75117433618712 },
-  vergel_do_lago: { lat: -9.65473763672645, lng: -35.7622505067133 },
-};
+// ============================================================
+// Coordenadas das filiais — White Label
+// Configure via VITE_STORE_COORDINATES no .env:
+//   Formato: id:lat,lng separados por | entre filiais
+//   Exemplo: VITE_STORE_COORDINATES=principal:-23.5505,-46.6333|norte:-23.5100,-46.6100
+// ============================================================
+function parseCoordinates(): Record<string, Coordinates> {
+  const raw = import.meta.env.VITE_STORE_COORDINATES ?? '';
+  if (!raw) return {};
+  const result: Record<string, Coordinates> = {};
+  raw.split('|').forEach((entry: string) => {
+    const parts = entry.trim().split(':');
+    if (parts.length === 2) {
+      const id = parts[0].trim();
+      const [lat, lng] = parts[1].split(',').map(Number);
+      if (!isNaN(lat) && !isNaN(lng)) result[id] = { lat, lng };
+    }
+  });
+  return result;
+}
+
+/** Coordenadas das filiais — carregadas do .env via VITE_STORE_COORDINATES */
+export const STORE_COORDINATES: Record<string, Coordinates> = parseCoordinates();
 
 const parseEnvNumber = (val: string | undefined, defaultVal: number, emptyIsZero: boolean = false): number => {
   if (val === undefined) return defaultVal;

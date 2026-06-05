@@ -1,8 +1,17 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-const CACHE_NAME = 'ecommerce-v4';
-const STATIC_ASSETS = ['/', '/manifest.json', '/logo.png', '/icons/icon-sagrada-familia-app.png'];
+// ============================================================
+// firebase-messaging-sw.js — Service Worker para Push (White Label)
+//
+// As credenciais do Firebase são injetadas pelo cliente via
+// postMessage após o SW ser registrado (ver src/shared/lib/firebase.ts).
+// Isso mantém este arquivo sem credenciais hardcoded, permitindo
+// que qualquer cliente use seu próprio projeto Firebase.
+// ============================================================
+
+const CACHE_NAME = 'ecommerce-v5';
+const STATIC_ASSETS = ['/', '/manifest.json', '/logo.png', '/icons/icon-app.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -50,45 +59,31 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD8uwYVG34wf5m0BlbFOf6_Dmdlh0lqGs4",
-  authDomain: "sagrada-familia-a334e.firebaseapp.com",
-  projectId: "sagrada-familia-a334e",
-  storageBucket: "sagrada-familia-a334e.firebasestorage.app",
-  messagingSenderId: "748039006363",
-  appId: "1:748039006363:web:f318f33b15992792427e3e"
-};
-
 // ---------------------------------------------------------------------------
-// Inicializa Firebase Messaging (compat)
+// Recebe configuração Firebase via postMessage do app principal
+// Isso evita credenciais hardcoded no SW (White Label)
 // ---------------------------------------------------------------------------
-try {
-  if (firebaseConfig.apiKey) {
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+let firebaseInitialized = false;
 
-    // onBackgroundMessage é chamado pelo SDK quando o app está em background
-    // e o payload é data-only (sem campo `notification`).
-    // Para payloads COM `notification`, o SDK compat delega ao evento `push`
-    // nativo — por isso também interceptamos o evento `push` diretamente abaixo.
-    messaging.onBackgroundMessage((payload) => {
-      console.log('[SW] onBackgroundMessage:', JSON.stringify(payload));
-      // Deixa o handler `push` abaixo cuidar da exibição para evitar duplicação.
-      // Este callback apenas garante que o SDK não suprima o evento push.
-    });
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'FIREBASE_CONFIG') {
+    if (firebaseInitialized) return;
+    try {
+      const firebaseConfig = event.data.config;
+      if (firebaseConfig && firebaseConfig.apiKey) {
+        firebase.initializeApp(firebaseConfig);
+        firebase.messaging();
+        firebaseInitialized = true;
+        console.log('[SW] Firebase inicializado via postMessage');
+      }
+    } catch (e) {
+      console.warn('[SW] Erro ao inicializar Firebase via postMessage:', e);
+    }
   }
-} catch (e) {
-  console.warn('[SW] FCM init error:', e);
-}
+});
 
 // ---------------------------------------------------------------------------
-// Evento `push` nativo — mais confiável no Chrome Desktop/Windows
-// ---------------------------------------------------------------------------
-// O SDK Firebase compat registra seu próprio listener de `push`, mas quando
-// o payload contém `notification`, ele pode suprimir o showNotification em
-// alguns ambientes (especialmente Chrome no Windows com o app em background).
-// Ao interceptar o evento `push` diretamente com `event.waitUntil`, garantimos
-// que a notificação sempre aparece no SO.
+// Evento `push` nativo — exibe notificação no SO
 // ---------------------------------------------------------------------------
 self.addEventListener('push', (event) => {
   console.log('[SW] push event recebido');
@@ -104,21 +99,20 @@ self.addEventListener('push', (event) => {
 
   console.log('[SW] push payload:', JSON.stringify(payload));
 
-  // Extrai título e corpo de qualquer estrutura de payload FCM
   const title =
     payload.notification?.title ||
     payload.data?.title ||
-    'Supermercado Sagrada Família';
+    'Nova atualização';
 
   const body =
     payload.notification?.body ||
     payload.data?.body ||
-    'Nova atualização disponível';
+    'Você tem uma nova atualização.';
 
   const icon =
     payload.data?.icon ||
     payload.notification?.icon ||
-    '/icons/icon-sagrada-familia-app.png';
+    '/icons/icon-app.png';
 
   const clickUrl =
     payload.fcmOptions?.link ||
@@ -130,8 +124,7 @@ self.addEventListener('push', (event) => {
     icon,
     badge: '/icons/icon-192.png',
     vibrate: [200, 100, 200],
-    // tag fixo: substitui notificação anterior em vez de empilhar
-    tag: 'sagrada-familia-notification',
+    tag: 'ecommerce-notification',
     renotify: true,
     requireInteraction: false,
     silent: false,

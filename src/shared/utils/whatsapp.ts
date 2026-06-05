@@ -1,11 +1,8 @@
 import type { CartItem } from '../types';
 import { formatCurrency } from './currency';
+import { STORE_WHATSAPP_NUMBERS } from '../config/stores';
 
-export const STORE_WHATSAPP_NUMBERS: Record<string, string> = {
-  benedito_bentes: import.meta.env.VITE_WHATSAPP_BENEDITO_BENTES || '5582987187113',
-  salvador_lyra: import.meta.env.VITE_WHATSAPP_SALVADOR_LYRA || '5582999999999',
-  vergel_do_lago: import.meta.env.VITE_WHATSAPP_VERGEL_DO_LAGO || '5582999999999',
-};
+export { STORE_WHATSAPP_NUMBERS };
 
 const GREETING = import.meta.env.VITE_STORE_WHATSAPP_GREETING || 'Olá! Gostaria de fazer um pedido.';
 
