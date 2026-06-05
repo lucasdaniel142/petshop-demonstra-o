@@ -24,34 +24,51 @@ import { useRef, useCallback } from 'react';
 export function useNotificationSound() {
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  useEffect(() => {
+    const initAudio = () => {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+    };
+    
+    // Tenta inicializar em qualquer interação do usuário com a página
+    document.addEventListener('click', initAudio, { once: true });
+    document.addEventListener('keydown', initAudio, { once: true });
+    
+    return () => {
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('keydown', initAudio);
+    };
+  }, []);
+
   const playBeep = useCallback(() => {
     try {
-      // Inicializa o AudioContext na primeira chamada
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
 
       const audioContext = audioContextRef.current;
 
-      // Resume se estiver suspenso (política do Chrome)
       if (audioContext.state === 'suspended') {
-        audioContext.resume();
+        audioContext.resume().catch(() => {
+          console.warn('[useNotificationSound] Áudio bloqueado pelo navegador. O usuário precisa interagir com a página.');
+        });
       }
 
-      // Cria oscilador e ganho
       const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();
 
       oscillator.connect(gain);
       gain.connect(audioContext.destination);
 
-      // Configura o som: frequência 880Hz (A5), volume 0.3
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-      gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gain.gain.setValueAtTime(0.5, audioContext.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
 
-      // Reproduz por 0.5 segundos
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
     } catch (err) {

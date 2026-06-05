@@ -96,6 +96,14 @@ self.addEventListener('push', (event) => {
   let payload = {};
   try { if (event.data) payload = event.data.json(); } catch (e) {}
 
+  // [FIX] Se a notificação já vem estruturada com o bloco "notification",
+  // o Firebase Messaging SDK (iniciado acima) intercepta e exibe automaticamente!
+  // Abortamos a exibição manual para evitar notificações duplicadas.
+  if (payload.notification) {
+    console.log('[SW] Ignorando push manual pois SDK do Firebase já exibirá');
+    return;
+  }
+
   const title = payload.notification?.title || payload.data?.title || 'Nova atualização';
   const body  = payload.notification?.body  || payload.data?.body  || 'Você tem uma nova atualização.';
   const icon  = payload.data?.icon || payload.notification?.icon || '/icons/icon-app.png';
