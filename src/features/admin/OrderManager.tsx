@@ -19,7 +19,6 @@ import { db, auth } from '../../shared/lib/firebase';
 import type { Order } from '../../shared/types';
 import { formatCurrency, getItemPrice } from '../../shared/utils/currency';
 import { BRAND } from '../../shared/config/brand';
-import { useNotificationSound } from '../../shared/hooks/useNotificationSound';
 
 // Emojis definidos via Unicode Escape Sequences para evitar corrupção de
 // surrogate pairs em ambientes Windows/VS Code com encoding inconsistente.
@@ -249,9 +248,20 @@ export const OrderManager: React.FC = () => {
 
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
-  
-  // [BP-02 FIX] Usa hook ao invés de variável global
-  const { playBeep } = useNotificationSound();
+
+  const playBeep = () => {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  };
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -422,14 +432,8 @@ export const OrderManager: React.FC = () => {
         } as Order;
       });
 
-      if (!isFirstLoad.current && soundEnabled) {
-        for (const order of loadedOrders) {
-          if (order.paymentStatus === 'pending' && !knownOrderIds.current.has(order.id)) {
-            playBeep(); // [BP-02 FIX] Usa função do hook
-            break;
-          }
-        }
-      }
+      const isNew = snapshot.docChanges().some(change => change.type === 'added');
+      if (isNew && !isFirstLoad.current && soundEnabled) playBeep();
 
       knownOrderIds.current = new Set(loadedOrders.map((o) => o.id));
       isFirstLoad.current = false;
