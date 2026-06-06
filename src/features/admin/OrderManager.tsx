@@ -34,7 +34,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   pending:   { label: `${E.BELL} Novo Pedido`,       color: 'text-amber-700',  bg: 'bg-amber-100',  whatsappMessage: `Ol\u00E1! ${E.BELL} Recebemos seu pedido e j\u00E1 estamos come\u00E7ando a prepar\u00E1-lo. Em breve voc\u00EA receber\u00E1 atualiza\u00E7\u00F5es sobre o status.` },
   preparing: { label: `${E.BOX} Em Separa\u00E7\u00E3o`, color: 'text-blue-700',   bg: 'bg-blue-100',   whatsappMessage: `Ol\u00E1! ${E.BOX} Seu pedido est\u00E1 sendo separado e preparado com carinho. Em breve sair\u00E1 para entrega.` },
   shipped:   { label: `${E.TRUCK} Saiu para Entrega`, color: 'text-purple-700', bg: 'bg-purple-100', whatsappMessage: `Ol\u00E1! ${E.TRUCK} Seu pedido saiu para entrega e est\u00E1 a caminho. Fique atento para receb\u00EA-lo!` },
-  delivered: { label: `${E.CHECK} Entregue`,          color: 'text-green-700',  bg: 'bg-green-100',  whatsappMessage: `Ol\u00E1! ${E.CHECK} Seu pedido foi entregue com sucesso. Agradecemos a prefer\u00EAncia!` },
+  delivered: { label: `${E.CHECK} Chegou ao Destino`, color: 'text-green-700',  bg: 'bg-green-100',  whatsappMessage: `Ol\u00E1! ${E.CHECK} Seu pedido chegou ao destino. Agradecemos a prefer\u00EAncia!` },
   cancelled: { label: `${E.CROSS} Cancelado`,         color: 'text-red-700',    bg: 'bg-red-100',    whatsappMessage: `Ol\u00E1! ${E.CROSS} Informamos que seu pedido foi cancelado. Entre em contato conosco para mais informa\u00E7\u00F5es.` },
 };
 
