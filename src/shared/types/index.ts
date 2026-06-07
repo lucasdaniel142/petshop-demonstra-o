@@ -114,3 +114,10 @@ export interface Order {
   updatedAt?: unknown;
   fcmToken?: string;
 }
+
+export interface LocalOrderHistoryEntry {
+  orderId: string;
+  phone: string;
+  storeId?: string;
+  createdAt: number;
+}

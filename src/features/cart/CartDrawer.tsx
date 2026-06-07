@@ -13,6 +13,7 @@
 // =============================================================================
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { X, Trash2, ShoppingBag, MessageCircle, MapPin, Loader2 } from 'lucide-react';
 import { useCart } from '../../shared/hooks/useCart';
 import { generateWhatsAppLink, STORE_WHATSAPP_NUMBERS } from '../../shared/utils/whatsapp';
@@ -27,12 +28,13 @@ import {
 } from '../../shared/config/delivery';
 import { isStoreOpen, getStoreHoursLabel } from '../../shared/config/businessHours';
 import type { StoreId } from '../../shared/types';
-import { Link } from 'react-router-dom';
 
 import { SoftNotificationPrompt } from '../../shared/components/SoftNotificationPrompt';
 import { formatCurrency } from '../../shared/utils/currency';
 import { linkNotificationTokenToPhone } from '../../shared/lib/notifications';
 import { ensureAnonymousAuth } from '../../shared/lib/firebase';
+import { addOrderHistoryEntry } from '../../shared/utils/orderHistory';
+import { OrderHistory } from './OrderHistory';
 
 // ---------------------------------------------------------------------------
 // [FIX-3] Leitura segura do threshold de frete grátis por valor
@@ -80,6 +82,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const deliveryFee = activeDelivery?.fee ?? (hasFreeShipping ? 0 : DELIVERY_BASE_FEE);
   const totalGeral = cartTotal + deliveryFee;
 
+  const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -320,8 +323,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         throw new Error(errorData.error || 'Erro na API de checkout');
       }
 
-      const { subtotal: serverSubtotal, deliveryFee: serverDeliveryFee } =
+      const { orderId, subtotal: serverSubtotal, deliveryFee: serverDeliveryFee } =
         await response.json();
+
+      if (orderId) {
+        addOrderHistoryEntry({
+          orderId,
+          phone: cleanPhone,
+          storeId: selectedStoreId,
+          createdAt: Date.now(),
+        });
+      }
 
       const storePhone = STORE_WHATSAPP_NUMBERS[selectedStoreId];
       const link = generateWhatsAppLink(
@@ -419,7 +431,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         }`}
       >
         <div className="px-6 py-5 border-b border-gray-100 font-[700] text-[16px] flex justify-between items-center text-text shrink-0">
-          <span>Meu Carrinho</span>
+          <div className="flex items-center gap-2 rounded-full bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('cart')}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                activeTab === 'cart'
+                  ? 'bg-white shadow-sm text-text'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              Meu Carrinho
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('history')}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                activeTab === 'history'
+                  ? 'bg-white shadow-sm text-text'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              Histórico
+            </button>
+          </div>
           <button
             onClick={toggleCart}
             className="text-muted hover:text-text transition-colors p-1 rounded"
@@ -429,76 +464,80 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 custom-scrollbar">
-          {items.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-muted space-y-4">
-              <ShoppingBag size={48} className="opacity-30" />
-              <p className="font-medium text-[15px]">Seu carrinho está vazio</p>
-              <p className="text-[13px] text-center">
-                Adicione produtos da vitrine para começar seu pedido.
-              </p>
-            </div>
-          ) : (
-            <ul>
-              {items.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex gap-[12px] mb-[16px] pb-[16px] border-b border-dashed border-border last:border-0"
-                >
-                  <div className="w-[40px] h-[40px] bg-[#f0f0f0] rounded-[4px] flex items-center justify-center shrink-0 overflow-hidden">
-                    <img
-                      src={item.imageUrl || DEFAULT_PLACEHOLDER_IMAGE}
-                      alt={item.name}
-                      className="w-full h-full object-contain p-1"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = DEFAULT_PLACEHOLDER_IMAGE;
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 flex flex-col">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-[13px] font-[500] text-text line-clamp-2 pr-2">
-                        {item.name}
-                      </h3>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-muted hover:text-red-500 transition-colors p-1 -mt-1 -mr-1 rounded shrink-0"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+          {activeTab === 'cart' ? (
+            items.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-muted space-y-4">
+                <ShoppingBag size={48} className="opacity-30" />
+                <p className="font-medium text-[15px]">Seu carrinho está vazio</p>
+                <p className="text-[13px] text-center">
+                  Adicione produtos da vitrine para começar seu pedido.
+                </p>
+              </div>
+            ) : (
+              <ul>
+                {items.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex gap-[12px] mb-[16px] pb-[16px] border-b border-dashed border-border last:border-0"
+                  >
+                    <div className="w-[40px] h-[40px] bg-[#f0f0f0] rounded-[4px] flex items-center justify-center shrink-0 overflow-hidden">
+                      <img
+                        src={item.imageUrl || DEFAULT_PLACEHOLDER_IMAGE}
+                        alt={item.name}
+                        className="w-full h-full object-contain p-1"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = DEFAULT_PLACEHOLDER_IMAGE;
+                        }}
+                      />
                     </div>
-                    <div className="flex items-center justify-between mt-[4px]">
-                      <span className="text-[13px] text-primary font-[600]">
-                        {formatCurrency((item.price || 0) * (item.quantity || 0))}
-                      </span>
-                      <div
-                        className="flex items-center bg-primary rounded-[4px] text-white h-[24px] px-[2px]"
-                        role="group"
-                      >
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-[13px] font-[500] text-text line-clamp-2 pr-2">
+                          {item.name}
+                        </h3>
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-[20px] h-[20px] flex items-center justify-center hover:bg-white/20 rounded-[2px] transition-colors text-[14px]"
+                          onClick={() => removeItem(item.id)}
+                          className="text-muted hover:text-red-500 transition-colors p-1 -mt-1 -mr-1 rounded shrink-0"
                         >
-                          −
-                        </button>
-                        <span className="w-[20px] text-center font-semibold text-[12px]">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-[20px] h-[20px] flex items-center justify-center hover:bg-white/20 rounded-[2px] transition-colors text-[14px]"
-                        >
-                          +
+                          <Trash2 size={14} />
                         </button>
                       </div>
+                      <div className="flex items-center justify-between mt-[4px]">
+                        <span className="text-[13px] text-primary font-[600]">
+                          {formatCurrency((item.price || 0) * (item.quantity || 0))}
+                        </span>
+                        <div
+                          className="flex items-center bg-primary rounded-[4px] text-white h-[24px] px-[2px]"
+                          role="group"
+                        >
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            className="w-[20px] h-[20px] flex items-center justify-center hover:bg-white/20 rounded-[2px] transition-colors text-[14px]"
+                          >
+                            −
+                          </button>
+                          <span className="w-[20px] text-center font-semibold text-[12px]">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            className="w-[20px] h-[20px] flex items-center justify-center hover:bg-white/20 rounded-[2px] transition-colors text-[14px]"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : (
+            <OrderHistory onOpenCart={() => setActiveTab('cart')} />
           )}
         </div>
 
-        {items.length > 0 && (
+        {activeTab === 'cart' && items.length > 0 && (
           <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50 shrink-0 space-y-3">
             <div className="flex justify-between text-[14px] text-muted">
               <span>Subtotal</span>
@@ -554,7 +593,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         )}
       </div>
 
-      {isModalOpen && (
+      {activeTab === 'cart' && isModalOpen && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
           role="dialog"

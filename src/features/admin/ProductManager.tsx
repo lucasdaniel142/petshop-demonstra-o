@@ -287,6 +287,16 @@ export const ProductManager: React.FC = () => {
               </select>
             </div>
           </div>
+          <div className="space-y-2">
+            <label className="text-[13px] font-[600] text-muted">Descrição</label>
+            <textarea
+              value={formData.descricao}
+              onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+              placeholder="Descrição do produto"
+              rows={4}
+              className="w-full bg-[#F0F2F2] px-4 py-3 rounded-[8px] outline-none border border-transparent focus:border-primary resize-none"
+            />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">

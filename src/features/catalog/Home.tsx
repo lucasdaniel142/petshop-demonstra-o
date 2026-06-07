@@ -16,6 +16,7 @@ import { CartDrawer } from '../cart/CartDrawer';
 import { ProductCard } from './ProductCard';
 import { NotificationBanner } from '../../shared/components/NotificationBanner';
 import { useCart } from '../../shared/hooks/useCart';
+import { formatCurrency } from '../../shared/utils/currency';
 import type { FirestoreProduct, StoreId } from '../../shared/types';
 import { STORES, STORE_IDS, CATEGORY_OPTIONS, CATEGORY_KEYWORDS } from '../../shared/utils/constants';
 import { Loader2 } from 'lucide-react';
@@ -55,7 +56,7 @@ export const Home: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const { toggleCart, clearCart } = useCart();
+  const { toggleCart, clearCart, cartItemCount, cartTotal } = useCart();
 
   const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const hasMoreRef = useRef(true);
@@ -301,6 +302,22 @@ export const Home: React.FC = () => {
               Escolha a loja e a categoria para ver os preços exatos.
             </div>
           </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-4">
+          {cartItemCount > 0 ? (
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 shadow-sm">
+              <p className="font-semibold">Carrinho salvo</p>
+              <p className="mt-1 leading-relaxed">
+                Seu carrinho tem <span className="font-bold">{cartItemCount}</span> item{cartItemCount > 1 ? 's' : ''} e está salvo.<br />
+                Total: <span className="font-bold">{formatCurrency(cartTotal)}</span>. Você pode continuar a compra quando quiser.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-700 shadow-sm">
+              <p className="font-semibold">Carrinho vazio</p>
+              <p className="mt-1 leading-relaxed">Adicione produtos na vitrine e o carrinho ficará salvo automaticamente para você continuar depois.</p>
+            </div>
+          )}
         </div>
 
         <section className="flex-1 bg-bg">
