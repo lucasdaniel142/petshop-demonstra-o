@@ -56,10 +56,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       token,
       notification: { title, body },
       webpush: {
+        headers: { Urgency: 'high' },
+        notification: {
+          title,
+          body,
+          icon: '/icons/icon-app.png',
+          badge: '/icons/icon-192.png',
+          requireInteraction: false,
+          tag: 'promotion-notification',
+        },
         fcmOptions: {
           link: '/'
         }
-      }
+      },
+      data: { title, body, link: '/' }
     };
 
     const messageId = await adminMessaging.send(message);

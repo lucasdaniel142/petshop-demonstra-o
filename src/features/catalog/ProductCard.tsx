@@ -161,7 +161,7 @@ export const ProductCard = React.memo(function ProductCard({
           </h3>
 
           {product.description && (
-            <p className="text-[11px] sm:text-[12px] text-muted leading-[1.4] line-clamp-2 -mt-1">
+            <p className="text-[12px] sm:text-[13px] lg:text-[14px] text-slate-700 dark:text-slate-300 leading-[1.5] line-clamp-3 -mt-0.5 font-medium">
               {product.description}
             </p>
           )}

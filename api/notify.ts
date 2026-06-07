@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Firebase Admin não inicializado. Verifique FIREBASE_SERVICE_ACCOUNT_KEY.' });
   }
 
-  const { token, title, body, icon, data: extraData, link } = req.body ?? {};
+  const { token, title, body, icon, data: extraData, link, requireInteraction = false } = req.body ?? {};
 
   if (!token || typeof token !== 'string') {
     return res.status(400).json({ error: 'Campo "token" é obrigatório.' });
@@ -131,7 +131,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body: String(body),
         icon: iconUrl,
         badge: '/icons/icon-192.png',
-        requireInteraction: false,
+        requireInteraction: requireInteraction === true,
+        tag: requireInteraction ? `order-${Date.now()}` : 'notification',
+        renotify: requireInteraction,
       },
       fcmOptions: { link: resolvedLink },
     },
