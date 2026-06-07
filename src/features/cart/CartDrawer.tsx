@@ -664,7 +664,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div className="relative">
                   <input
                     id="cart-cep"
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={cep}
                     onChange={(e) => handleCepChange(e.target.value)}
                     className={`w-full rounded-[10px] border px-4 py-3 text-[14px] outline-none transition-colors pr-10 ${

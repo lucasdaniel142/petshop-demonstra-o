@@ -5,6 +5,31 @@ import { useAuth } from '../../shared/contexts/AuthContext';
 import { BRAND } from '../../shared/config/brand';
 
 export const AdminLayout: React.FC = () => {
+  React.useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    const previousHref = link?.href ?? '';
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'manifest';
+      document.head.appendChild(link);
+    }
+    link.href = '/manifest-admin.json';
+
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const previousColor = meta?.content ?? '';
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = '#1f2937';
+
+    return () => {
+      if (link) link.href = previousHref;
+      if (meta) meta.content = previousColor;
+    };
+  }, []);
+
   const { logout } = useAuth();
   const navigate = useNavigate();
 

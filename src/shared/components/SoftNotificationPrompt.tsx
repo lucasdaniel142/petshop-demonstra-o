@@ -9,20 +9,45 @@
 //   - Não suportado → não renderiza nada
 // =============================================================================
 
-import React, { useState } from 'react';
-import { Bell, BellOff, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, BellOff, X, Loader2 } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+
+const DISMISSED_KEY = 'notif_prompt_dismissed_until';
+const DISMISS_DAYS = 7;
+
+function isDismissed(): boolean {
+  try {
+    const val = localStorage.getItem(DISMISSED_KEY);
+    if (!val) return false;
+    return Date.now() < Number(val);
+  } catch {
+    return false;
+  }
+}
+
+function setDismissed() {
+  try {
+    const until = Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000;
+    localStorage.setItem(DISMISSED_KEY, String(until));
+  } catch {}
+}
 
 export const SoftNotificationPrompt: React.FC = () => {
   const { permission, setPermission, requestPermissionAndGetToken } = usePushNotifications();
   const [isLoading, setIsLoading] = useState(false);
   const [justActivated, setJustActivated] = useState(false);
+  const [dismissed, setDismissedState] = useState(false);
+
+  useEffect(() => {
+    setDismissedState(isDismissed());
+  }, []);
 
   // Não renderiza se o navegador não suporta notificações
   if (!('Notification' in window)) return null;
 
-  // ── Permissão já concedida ────────────────────────────────────────────────
-  if (permission === 'granted' || justActivated) {
+  // ── Permissão já concedida ou usuário dispensou recentemente ─────────────
+  if (permission === 'granted' || justActivated || dismissed) {
     return null;
   }
 
@@ -40,14 +65,13 @@ export const SoftNotificationPrompt: React.FC = () => {
   }
 
   // ── Estado padrão: permissão ainda não solicitada ─────────────────────────
-  const handleClick = async () => {
+  const handleAllow = async () => {
     setIsLoading(true);
     try {
       const token = await requestPermissionAndGetToken();
       if (token) {
         setJustActivated(true);
       } else {
-        // Atualiza o estado local para refletir a decisão do usuário
         if ('Notification' in window) {
           setPermission(Notification.permission);
         }
@@ -57,13 +81,13 @@ export const SoftNotificationPrompt: React.FC = () => {
     }
   };
 
+  const handleDismiss = () => {
+    setDismissed();
+    setDismissedState(true);
+  };
+
   return (
-    <button
-      onClick={handleClick}
-      disabled={isLoading}
-      className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 active:bg-primary/15 disabled:opacity-60 disabled:cursor-not-allowed"
-      aria-label="Ativar notificações de pedido"
-    >
+    <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
       <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
         {isLoading ? (
           <Loader2 size={16} className="animate-spin text-primary" />
@@ -73,14 +97,32 @@ export const SoftNotificationPrompt: React.FC = () => {
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-primary leading-tight">
-          {isLoading ? 'Ativando notifica\u00E7\u00F5es...' : '\u{1F514} Me avise quando o pedido sair para entrega'}
+          {isLoading ? 'Ativando notificações…' : '🔔 Acompanhar meu pedido'}
         </p>
         {!isLoading && (
           <p className="text-xs text-muted mt-0.5">
-            Receba alertas no celular sobre o status do seu pedido.
+            Receba alertas quando seu pedido sair para entrega.
           </p>
         )}
       </div>
-    </button>
+
+      {!isLoading && (
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={handleAllow}
+            className="text-xs font-bold text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary/90 transition-colors"
+          >
+            Ativar
+          </button>
+          <button
+            onClick={handleDismiss}
+            aria-label="Dispensar notificações"
+            className="p-1.5 text-muted hover:text-text rounded-lg transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+    </div>
   );
 };

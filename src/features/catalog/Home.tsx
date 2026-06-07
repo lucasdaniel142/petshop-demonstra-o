@@ -33,6 +33,7 @@ function mapProductDoc(docSnap: QueryDocumentSnapshot<DocumentData>): FirestoreP
     unit: data.unit || 'un',
     precos: data.precos || {},
     freteGratis: data.freteGratis === true,
+    descricao: data.descricao || data.description || '',
   };
 }
 
@@ -233,6 +234,7 @@ export const Home: React.FC = () => {
                     price: storePrice?.valor ?? 0,
                     storeId: selectedStore,
                     freteGratis: product.freteGratis === true,
+                    description: product.descricao || '',
                   }}
                   storePrice={storePrice}
                   storeId={selectedStore}

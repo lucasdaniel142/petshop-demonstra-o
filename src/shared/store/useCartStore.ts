@@ -86,7 +86,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'ecommerce-cart',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ items: state.items }),
     }
   )
