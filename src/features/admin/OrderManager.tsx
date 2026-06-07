@@ -329,6 +329,7 @@ export const OrderManager: React.FC = () => {
               title: `${BRAND.shortName}: Pedido Atualizado!`,
               body: `Seu pedido #${order?.id.slice(0, 8)} agora está: ${label}.`,
               link: '/',
+              requireInteraction: true,
             }),
           });
           
