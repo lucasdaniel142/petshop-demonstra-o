@@ -244,6 +244,8 @@ export const OrderManager: React.FC = () => {
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const knownOrderIds = useRef<Set<string>>(new Set());
@@ -366,6 +368,38 @@ export const OrderManager: React.FC = () => {
     }
   };
 
+  const handleCleanupOldOrders = async () => {
+    setCleanupLoading(true);
+    setCleanupResult(null);
+
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('Usuário não autenticado.');
+
+      const response = await fetch('/api/admin/cleanup-old-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha ao limpar pedidos antigos.');
+      }
+
+      setCleanupResult(data.message || `Pedidos antigos removidos: ${data.deleted}`);
+      emitAdminToast('Limpeza de pedidos antigos concluída', 'success');
+    } catch (err: any) {
+      console.error('[OrderManager] Falha ao limpar pedidos antigos:', err);
+      setCleanupResult(err.message || 'Erro ao limpar pedidos antigos.');
+      emitAdminToast('Erro ao limpar pedidos antigos', 'error');
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
   const handlePrint = useCallback((order: Order) => {
     const status = STATUS_CONFIG[order.paymentStatus] || { label: order.paymentStatus };
     const printWindow = window.open('', '_blank', 'width=302,height=600');
@@ -479,6 +513,13 @@ export const OrderManager: React.FC = () => {
           <button onClick={() => { setSoundEnabled(!soundEnabled); if (!soundEnabled) playBeep(); }} className={`p-2.5 rounded-lg border transition-colors ${soundEnabled ? 'bg-primary/10 border-primary text-primary' : 'bg-gray-100 border-transparent text-muted'}`}>
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
+          <button
+            onClick={handleCleanupOldOrders}
+            disabled={cleanupLoading}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:bg-red-300 disabled:cursor-not-allowed"
+          >
+            {cleanupLoading ? 'Limpando...' : 'Limpar pedidos >7 dias'}
+          </button>
         </div>
       </div>
 
@@ -491,6 +532,7 @@ export const OrderManager: React.FC = () => {
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 flex items-center gap-2"><span>⚠️</span> {error}</div>}
+      {cleanupResult && <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 flex items-center gap-2"><span>✅</span> {cleanupResult}</div>}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <OrderSkeleton key={i} />)}</div>
