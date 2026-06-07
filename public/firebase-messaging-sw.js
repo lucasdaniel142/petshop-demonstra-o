@@ -122,14 +122,15 @@ self.addEventListener('push', (event) => {
   const options = {
     body,
     icon,
-    badge: '/icons/icon-192.png',
+    badge: '/icons/icon-app.png',
     vibrate: [200, 100, 200],
-    tag: 'ecommerce-notification',
+    tag: 'ecommerce-notification-' + Date.now(),
     renotify: true,
-    requireInteraction: false,
+    requireInteraction: true,
     silent: false,
     data: { url: clickUrl },
     actions: [{ action: 'open', title: 'Abrir' }],
+    dir: 'ltr',
   };
 
   event.waitUntil(
