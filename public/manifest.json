@@ -3,6 +3,7 @@
   "short_name": "Meu E-Commerce",
   "description": "Faça suas compras online e receba em casa!",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#374151",

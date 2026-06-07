@@ -19,10 +19,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Meu E-Commerce">
-    <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icons/icon-app.png">
     <meta name="theme-color" content="#374151">
     <meta name="mobile-web-app-capable" content="yes">
+    <script>
+      // Carrega manifesto dinâmico dependendo da rota
+      (function() {
+        const isAdmin = window.location.pathname.startsWith('/admin');
+        const manifestHref = isAdmin ? '/manifest-admin.json' : '/manifest.json';
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestHref;
+        document.head.appendChild(link);
+      })();
+    </script>
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/icons/icon-app.png" />

@@ -22,8 +22,10 @@ export const InstallPWA: React.FC = () => {
   useEffect(() => {
     const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
+    const isStandaloneIos = (window.navigator as any).standalone === true;
 
-    if (isInStandaloneMode || isPromptIgnored()) {
+    // Não mostrar se já estiver instalado (qualquer modo de standalone)
+    if (isInStandaloneMode || isStandaloneIos || isPromptIgnored()) {
       setIsVisible(false);
       return;
     }
@@ -75,11 +77,7 @@ export const InstallPWA: React.FC = () => {
   };
 
   const handleIgnore = () => {
-    try {
-      localStorage.setItem(IGNORE_KEY, String(Date.now()));
-    } catch {
-      /* ignore */
-    }
+    // Não salva no IGNORE_KEY para que o prompt reapareça na próxima visita
     setIsVisible(false);
   };
 

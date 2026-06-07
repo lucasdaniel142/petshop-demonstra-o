@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Loader2, AlertCircle, Bell } from 'lucide-react';
+import { Settings, Save, Loader2, AlertCircle, Bell, Download } from 'lucide-react';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../shared/lib/firebase';
 import { updateDeliverySettings } from '../../shared/config/delivery';
@@ -28,6 +28,28 @@ export const SettingsManager: React.FC = () => {
   const [isNotifying, setIsNotifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [canInstall, setCanInstall] = useState(false);
+
+  useEffect(() => {
+    // Capturar evento beforeinstallprompt para PWA
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Verificar se já está instalado
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setCanInstall(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
 
   useEffect(() => {
     // [HP-01 FIX] Retorna ANTES de registrar o listener se não for admin
@@ -97,6 +119,20 @@ export const SettingsManager: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      setCanInstall(false);
+      setDeferredPrompt(null);
+    }
+
+    setDeferredPrompt(null);
   };
 
   const handleNotifyOffers = async () => {
@@ -306,6 +342,15 @@ export const SettingsManager: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-end">
+            {canInstall && (
+              <button
+                onClick={handleInstallPWA}
+                className="flex items-center gap-2 bg-gray-600 text-white px-6 py-2.5 rounded-xl font-bold text-[14px] hover:bg-gray-700 transition-colors"
+              >
+                <Download size={18} />
+                Instalar App
+              </button>
+            )}
             <button
               onClick={handleNotifyOffers}
               disabled={isNotifying}
