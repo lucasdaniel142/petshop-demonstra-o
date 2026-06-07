@@ -123,13 +123,14 @@ self.addEventListener('push', (event) => {
     body,
     icon,
     badge: '/icons/icon-app.png',
-    vibrate: [200, 100, 200],
-    tag: 'ecommerce-notification-' + Date.now(),
+    vibrate: [300, 150, 300, 150, 300],
+    tag: 'ecommerce-notification',
     renotify: true,
-    requireInteraction: true,
+    requireInteraction: false,
     silent: false,
+    sound: '/notification.mp3',
     data: { url: clickUrl },
-    actions: [{ action: 'open', title: 'Abrir' }],
+    actions: [{ action: 'open', title: 'Abrir', icon: '/icons/icon-app.png' }],
     dir: 'ltr',
   };
 

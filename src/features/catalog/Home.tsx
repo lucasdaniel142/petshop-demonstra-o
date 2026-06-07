@@ -303,18 +303,6 @@ export const Home: React.FC = () => {
             </div>
           </div>
         </div>
-        {cartItemCount > 0 && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-4">
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 shadow-sm">
-              <p className="font-semibold">Carrinho salvo</p>
-              <p className="mt-1 leading-relaxed">
-                Seu carrinho tem <span className="font-bold">{cartItemCount}</span> item{cartItemCount > 1 ? 's' : ''} e está salvo.<br />
-                Total: <span className="font-bold">{formatCurrency(cartTotal)}</span>. Você pode continuar a compra quando quiser.
-              </p>
-            </div>
-          </div>
-        )}
-
         <section className="flex-1 bg-bg">
           <div className="px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 xl:py-12">
             <div className="max-w-7xl mx-auto">{renderContent()}</div>
