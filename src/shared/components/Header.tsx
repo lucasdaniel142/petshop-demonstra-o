@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setIsMobileSearchOpen(true)}
-            className="md:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="md:hidden p-2 hover:bg-white/10 rounded-lg transition-all duration-200 hover:scale-110"
             aria-label="Buscar produtos"
           >
             <Search size={22} />
@@ -90,11 +90,11 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={onCartOpen}
-            className="relative p-2 hover:bg-white/10 rounded-lg transition-colors group"
+            className="relative p-2 hover:bg-white/10 rounded-lg transition-all duration-200 group"
           >
-            <span className="text-2xl group-hover:scale-110 transition-transform inline-block">🛒</span>
+            <span className="text-2xl group-hover:scale-125 transition-transform duration-200 inline-block">🛒</span>
             {cartItemCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-white text-primary text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+              <span className="absolute -top-0.5 -right-0.5 bg-white text-primary text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-sm animate-pulse-glow">
                 {cartItemCount}
               </span>
             )}

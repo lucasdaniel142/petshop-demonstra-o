@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  /* White Label — Paleta Neutra (Branco + Cinza) */
-  --color-primary: #374151;       /* Cinza Escuro */
-  --color-primary-dark: #1f2937;
-  --color-accent: #6b7280;        /* Cinza Médio */
-  --color-accent-dark: #4b5563;
-  --color-secondary: #6b7280;
+  /* Paleta Vibrante e Moderna */
+  --color-primary: #1f2937;       /* Cinza Escuro - mais profundo */
+  --color-primary-dark: #111827;
+  --color-accent: #059669;        /* Esmeralda - mais vibrante */
+  --color-accent-dark: #047857;
+  --color-secondary: #06b6d4;     /* Ciano */
   --color-on-primary: #ffffff;
   --color-on-accent: #ffffff;
-  --color-bg: #f9fafb;            /* Fundo Cinza Muito Claro */
+  --color-bg: #f8fafc;            /* Fundo muito claro */
   --color-card: #ffffff;
-  --color-text: #111827;          /* Texto principal quase preto */
-  --color-muted: #6b7280;
-  --color-border: #e5e7eb;
+  --color-text: #0f172a;          /* Texto mais contrastante */
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;        /* Borda mais clara */
 }
 
 .scrollbar-hide {
@@ -56,27 +56,89 @@ select {
   font-size: 16px !important;
 }
 
-/* Smooth scrolling */
+/* Smooth scrolling com aceleração */
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
 
-/* Custom scrollbar */
+body {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+/* Custom scrollbar com estilo moderno */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
+  background: transparent;
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  background: linear-gradient(180deg, #059669 0%, #047857 100%);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: linear-gradient(180deg, #047857 0%, #065f46 100%);
+}
+
+/* Animações suaves para elementos */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.animate-in-up {
+  animation: slideInUp 0.5s ease-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Melhorias visuais para buttons e links */
+button, a[role="button"] {
+  position: relative;
+  overflow: hidden;
+}
+
+button:active:not(:disabled),
+a[role="button"]:active {
+  transform: scale(0.98);
+}
+
+/* Transições suaves */
+* {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }

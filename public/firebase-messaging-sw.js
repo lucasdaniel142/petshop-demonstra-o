@@ -10,8 +10,11 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-comp
 // que qualquer cliente use seu próprio projeto Firebase.
 // ============================================================
 
-const CACHE_NAME = 'ecommerce-v5';
+const CACHE_NAME = 'ecommerce-v6';
 const STATIC_ASSETS = ['/', '/manifest.json', '/logo.png', '/icons/icon-app.png'];
+const IMAGE_CACHE = 'ecommerce-images-v1';
+const API_CACHE = 'ecommerce-api-v1';
+const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -51,11 +54,27 @@ self.addEventListener('fetch', (event) => {
         if (!response || response.status !== 200 || response.type === 'opaque') {
           return response;
         }
+        
+        // Estratégia de caching otimizada por tipo
+        const cacheTarget = event.request.url.includes('/i.ibb.co') || event.request.url.includes('.ibb.co')
+          ? IMAGE_CACHE
+          : /\.(jpg|jpeg|png|gif|webp)$/.test(event.request.url)
+          ? IMAGE_CACHE
+          : API_CACHE;
+        
         const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        caches.open(cacheTarget).then((cache) => {
+          cache.put(event.request, clone);
+        });
         return response;
       })
-      .catch(() => caches.match(event.request).then((r) => r || new Response('Offline', { status: 503 })))
+      .catch(() => {
+        // Tentar cache com fallback inteligente
+        return caches.match(event.request)
+          .then(cached => cached || (event.request.destination === 'image' 
+            ? caches.match('/icons/icon-app.png')
+            : new Response('Offline', { status: 503 })));
+      })
   );
 });
 

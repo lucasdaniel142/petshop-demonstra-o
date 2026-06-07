@@ -100,12 +100,12 @@ export const ProductCard = React.memo(function ProductCard({
         <Lightbox src={imgSrc} alt={product.name} onClose={() => setLightboxOpen(false)} />
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 md:p-6 lg:p-8 flex flex-col h-full border-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-        <div className="w-full h-[100px] sm:h-[120px] bg-gray-50 rounded-xl mb-4 sm:mb-6 lg:mb-8 flex items-center justify-center overflow-hidden relative group">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-5 md:p-6 lg:p-8 flex flex-col h-full transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-slate-200 group">
+        <div className="w-full h-[100px] sm:h-[120px] bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl mb-4 sm:mb-6 lg:mb-8 flex items-center justify-center overflow-hidden relative">
           <img
             src={imgSrc}
             alt={product.name}
-            className="w-full h-full object-contain p-2 cursor-zoom-in transition-transform duration-200 group-hover:scale-105"
+            className="w-full h-full object-contain p-2 cursor-zoom-in transition-transform duration-300 group-hover:scale-110"
             width={400}
             height={120}
             loading={imageLoading}
@@ -120,9 +120,9 @@ export const ProductCard = React.memo(function ProductCard({
           <button
             onClick={handleImageClick}
             aria-label="Ampliar imagem"
-            className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white rounded-md p-1 shadow-sm"
+            className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 hover:bg-white rounded-lg p-2 shadow-md hover:shadow-lg hover:scale-110"
           >
-            <ZoomIn size={13} className="text-gray-600" />
+            <ZoomIn size={16} className="text-slate-600" />
           </button>
 
           {isOffer && (
@@ -146,7 +146,7 @@ export const ProductCard = React.memo(function ProductCard({
           <div className="flex items-baseline gap-1">
             {hasPrice ? (
               <>
-                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-[700] text-text">
+                <span className="text-[16px] sm:text-[18px] lg:text-[20px] font-[700] text-accent bg-gradient-to-r from-accent to-accent-dark bg-clip-text text-transparent">
                   {formatCurrency(product.price || 0)}
                 </span>
                 <span className="text-[10px] sm:text-[11px] text-muted font-[400]">/ {product.unit}</span>
@@ -172,7 +172,7 @@ export const ProductCard = React.memo(function ProductCard({
                 type="button"
                 onClick={handleAdd}
                 disabled={disabled}
-                className="w-full min-h-[42px] sm:min-h-[44px] rounded-xl bg-accent text-on-accent font-extrabold text-[12px] sm:text-[13px] tracking-wide flex items-center justify-center shadow-sm transition-colors hover:bg-accent-dark active:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-45"
+                className="w-full min-h-[42px] sm:min-h-[44px] rounded-xl bg-gradient-to-r from-accent to-accent-dark text-on-accent font-extrabold text-[12px] sm:text-[13px] tracking-wide flex items-center justify-center shadow-md transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Adicionar
               </button>
