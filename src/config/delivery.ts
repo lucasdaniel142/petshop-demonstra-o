@@ -47,13 +47,13 @@ const parseEnvNumber = (val: string | undefined, defaultVal: number, emptyIsZero
 };
 
 /** Taxa fixa para entregas dentro do raio base */
-export const DELIVERY_BASE_FEE = parseEnvNumber(import.meta.env.VITE_DELIVERY_BASE_FEE, 5.00, true);
+export const DELIVERY_BASE_FEE = parseEnvNumber(import.meta.env.VITE_DELIVERY_BASE_FEE, 0, true);
 
 /** Raio em KM onde a taxa é fixa (DELIVERY_BASE_FEE) */
-export const DELIVERY_BASE_RADIUS_KM = parseEnvNumber(import.meta.env.VITE_DELIVERY_BASE_RADIUS_KM, 3);
+export const DELIVERY_BASE_RADIUS_KM = parseEnvNumber(import.meta.env.VITE_DELIVERY_BASE_RADIUS_KM, 15);
 
 /** Valor cobrado por KM adicional (além do raio base) */
-export const DELIVERY_PER_KM_FEE = parseEnvNumber(import.meta.env.VITE_DELIVERY_PER_KM_FEE, 1.50, true);
+export const DELIVERY_PER_KM_FEE = parseEnvNumber(import.meta.env.VITE_DELIVERY_PER_KM_FEE, 0, true);
 
 /** Distância máxima de entrega (acima disso = fora da área) */
 export const DELIVERY_MAX_RADIUS_KM = parseEnvNumber(import.meta.env.VITE_DELIVERY_MAX_RADIUS_KM, 15);

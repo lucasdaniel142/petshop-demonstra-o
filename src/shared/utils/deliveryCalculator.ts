@@ -50,12 +50,22 @@ export function calculateDeliveryFee(
 
   // Arredonda o total do carrinho para evitar problemas de ponto flutuante
   const roundedCartTotal = Math.round(cartTotal * 100) / 100;
-  
+
+  // Se a taxa base é 0 (entrega gratuita por padrão), não mostra mensagem de frete grátis
+  if (config.baseFee === 0 && config.perKmFee === 0) {
+    return {
+      fee: 0,
+      distanceKm: parseFloat(distanceKm.toFixed(1)),
+      description: `Entrega a ${distanceKm.toFixed(1)} km`,
+      isInRange: true,
+    };
+  }
+
   // Verifica se tem frete grátis por valor mínimo
   const hasFreeShippingByValue =
-    config.freeShippingByValueEnabled && 
+    config.freeShippingByValueEnabled &&
     roundedCartTotal >= config.freeShippingMinValue;
-  
+
   const hasFreeShipping = hasFreeShippingByItem || hasFreeShippingByValue;
 
   // Se tem frete grátis, retorna taxa zero

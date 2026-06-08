@@ -561,7 +561,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     : formatCurrency(deliveryFee)}
                 </span>
                 {/* [FIX-3] Exibe badge quando frete grátis é por valor mínimo */}
-                {hasFreeShippingByTotal && !hasFreeShippingByItem && (
+                {hasFreeShippingByTotal && !hasFreeShippingByItem && DELIVERY_BASE_FEE > 0 && (
                   <div className="text-[10px] text-green-600">
                     Pedido acima de {formatCurrency(FREE_SHIPPING_MIN_VALUE)}
                   </div>

@@ -8,10 +8,10 @@
 
 export const BRAND = {
   /** Nome completo da loja (ex: "Açaí do João", "Pet Shop Amigo Fiel") */
-  name: import.meta.env.VITE_STORE_NAME || 'Meu E-Commerce',
+  name: import.meta.env.VITE_STORE_NAME || 'Bichos PetShop',
 
   /** Nome curto para título da aba e notificações */
-  shortName: import.meta.env.VITE_STORE_SHORT_NAME || 'Meu E-Commerce',
+  shortName: import.meta.env.VITE_STORE_SHORT_NAME || 'Bichos PetShop',
 
   /** Saudação personalizada na mensagem do WhatsApp */
   whatsappGreeting: import.meta.env.VITE_STORE_WHATSAPP_GREETING || 'Olá! Gostaria de fazer um pedido.',

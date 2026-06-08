@@ -9,9 +9,9 @@ import {
   type DeliveryCalculationResult
 } from '../utils/deliveryCalculator';
 
-export const DELIVERY_BASE_FEE       = parseFloat(import.meta.env.VITE_DELIVERY_BASE_FEE       ?? '5.00');
-export const DELIVERY_BASE_RADIUS_KM = parseFloat(import.meta.env.VITE_DELIVERY_BASE_RADIUS_KM ?? '3');
-export const DELIVERY_PER_KM_FEE     = parseFloat(import.meta.env.VITE_DELIVERY_PER_KM_FEE     ?? '1.50');
+export const DELIVERY_BASE_FEE       = parseFloat(import.meta.env.VITE_DELIVERY_BASE_FEE       ?? '0');
+export const DELIVERY_BASE_RADIUS_KM = parseFloat(import.meta.env.VITE_DELIVERY_BASE_RADIUS_KM ?? '15');
+export const DELIVERY_PER_KM_FEE     = parseFloat(import.meta.env.VITE_DELIVERY_PER_KM_FEE     ?? '0');
 export const DELIVERY_MAX_RADIUS_KM  = parseFloat(import.meta.env.VITE_DELIVERY_MAX_RADIUS_KM  ?? '15');
 
 // Variáveis mutáveis para atualização dinâmica via SettingsManager

@@ -4,6 +4,7 @@ import { Product, StorePrice } from '../../shared/types';
 import { useCartStore } from '../../shared/store/useCartStore';
 import { DEFAULT_PLACEHOLDER_IMAGE } from '../../shared/utils/placeholderImage';
 import { formatCurrency } from '../../shared/utils/currency';
+import { DELIVERY_BASE_FEE } from '../../shared/config/delivery';
 
 interface ProductCardProps {
   product: Product;
@@ -130,7 +131,7 @@ export const ProductCard = React.memo(function ProductCard({
               Oferta
             </span>
           )}
-          {product.freteGratis && !storePrice?.esgotado && (
+          {product.freteGratis && !storePrice?.esgotado && DELIVERY_BASE_FEE > 0 && (
             <span className="absolute bottom-2 left-2 bg-emerald-500 text-white text-[8px] sm:text-[9px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 pointer-events-none">
               🚚 Frete Grátis
             </span>
