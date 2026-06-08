@@ -1,22 +1,22 @@
 {
-  "name": "Painel Admin",
+  "name": "Bichos PetShop - Admin",
   "short_name": "Admin",
-  "description": "Painel administrativo — gerencie pedidos e produtos.",
+  "description": "Painel administrativo Bichos PetShop — gerencie pedidos e produtos.",
   "start_url": "/admin",
   "scope": "/admin",
   "display": "standalone",
   "background_color": "#1f2937",
-  "theme_color": "#1f2937",
+  "theme_color": "#181f63",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/icon-app.png",
+      "src": "/icons/icon-petshop.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-app.png",
+      "src": "/icons/icon-petshop.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
