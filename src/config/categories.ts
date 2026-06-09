@@ -11,7 +11,6 @@ export const PRODUCT_CATEGORIES = [
   'Medicamentos',
   'Acessórios',
   'Banho e Tosa',
-  'Ofertas',
 ] as const;
 
 // ── Categorias para a barra de navegação (Home) ──
