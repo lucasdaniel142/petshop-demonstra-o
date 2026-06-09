@@ -16,7 +16,6 @@ export const PRODUCT_CATEGORIES = [
 // ── Categorias para a barra de navegação (Home) ──
 export const CATEGORY_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'all', label: '🛒 Todos' },
-  { id: 'ofertas', label: '🏷️ Ofertas' },
   { id: 'racoes', label: '🍖 Rações' },
   { id: 'medicamentos', label: '💊 Medicamentos' },
   { id: 'acessorios', label: '🎾 Acessórios' },
